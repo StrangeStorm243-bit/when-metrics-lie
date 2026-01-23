@@ -1,0 +1,21 @@
+{
+    "name": "demo_minimal",
+    "task": "binary_classification",
+    "dataset": {
+        "source": "csv",
+        "path": "data/demo_binary.csv",
+        "y_true_col": "y_true",
+        "y_score_col": "y_score",
+        "subgroup_col": null
+    },
+    "metric": "auc",
+    "scenarios": [
+        { "id": "label_noise", "params": { "p": 0.1 } }
+    ],
+    "n_trials": 200,
+    "seed": 42,
+    "tags": {
+        "owner": "local",
+        "purpose": "phase1_contract"
+    }
+}
