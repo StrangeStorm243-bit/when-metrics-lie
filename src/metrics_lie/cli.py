@@ -6,6 +6,7 @@ import uuid
 from pathlib import Path
 
 from metrics_lie.datasets.loaders import load_binary_csv
+from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
 from metrics_lie.metrics.core import METRICS
 from metrics_lie.schema import MetricSummary, ResultBundle, ScenarioResult
 from metrics_lie.spec import load_experiment_spec
@@ -45,6 +46,11 @@ def run(spec_path: str) -> str:
     else:
         baseline_value = metric_fn(y_true, y_score)
 
+    baseline_cal = {
+        "brier": brier_score(y_true, y_score),
+        "ece": expected_calibration_error(y_true, y_score, n_bins=10),
+    }
+
     # --- Phase 1.4: run scenario stress tests (Monte Carlo) ---
     scenario_results = run_scenarios(
         y_true=y_true,
@@ -83,7 +89,7 @@ def run(spec_path: str) -> str:
         metric_name=spec.metric,
         baseline=_summary_from_single_value(baseline_value),
         scenarios=scenario_results_with_diag,
-        notes={"phase": "1.5", "spec_path": spec_path},
+        notes={"phase": "1.6", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
     )
 
     paths.results_json.write_text(bundle.to_pretty_json(), encoding="utf-8")

@@ -5,6 +5,7 @@ from typing import Callable, Dict, List
 
 import numpy as np
 
+from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
 from metrics_lie.schema import MetricSummary, ScenarioResult
 from metrics_lie.scenarios.base import ScenarioContext
 from metrics_lie.scenarios.registry import create_scenario
@@ -48,6 +49,8 @@ def run_scenarios(
         scenario = create_scenario(scenario_id, params)
 
         vals: list[float] = []
+        briers: list[float] = []
+        eces: list[float] = []
         for _ in range(cfg.n_trials):
             y_p, s_p = scenario.apply(y_true, y_score, rng, ctx)
             if metric_name == "accuracy":
@@ -55,13 +58,18 @@ def run_scenarios(
             else:
                 v = metric_fn(y_p, s_p)
             vals.append(float(v))
+            briers.append(brier_score(y_p, s_p))
+            eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
 
         results.append(
             ScenarioResult(
                 scenario_id=scenario_id,
                 params=params,
                 metric=summarize(vals),
-                diagnostics={},
+                diagnostics={
+                    "brier": summarize(briers).model_dump(),
+                    "ece": summarize(eces).model_dump(),
+                },
                 artifacts=[],
             )
         )
