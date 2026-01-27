@@ -15,7 +15,7 @@
         { "id": "class_imbalance", "params": { "target_pos_rate": 0.2, "max_remove_frac": 0.8 } }
     ],
     "n_trials": 200,
-    "seed": 42,
+    "seed": 123,
     "tags": {
         "owner": "local",
         "purpose": "phase1_contract"
