@@ -6,7 +6,7 @@
         "path": "data/demo_binary.csv",
         "y_true_col": "y_true",
         "y_score_col": "y_score",
-        "subgroup_col": null
+        "subgroup_col": "group"
     },
     "metric": "auc",
     "scenarios": [

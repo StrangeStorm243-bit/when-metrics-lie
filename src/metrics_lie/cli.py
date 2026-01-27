@@ -39,6 +39,9 @@ def run(spec_path: str) -> str:
 
     y_true = ds.y_true.to_numpy(dtype=int)
     y_score = ds.y_score.to_numpy(dtype=float)
+    subgroup = None
+    if ds.subgroup is not None:
+        subgroup = ds.subgroup.to_numpy()
 
     metric_fn = METRICS[spec.metric]
     if spec.metric == "accuracy":
@@ -60,6 +63,7 @@ def run(spec_path: str) -> str:
         scenario_specs=[s.model_dump() for s in spec.scenarios],
         cfg=RunConfig(n_trials=spec.n_trials, seed=spec.seed),
         ctx=ScenarioContext(task=spec.task),
+        subgroup=subgroup,
     )
 
     # --- Phase 1.5: add sensitivity_abs diagnostic ---
@@ -89,7 +93,7 @@ def run(spec_path: str) -> str:
         metric_name=spec.metric,
         baseline=_summary_from_single_value(baseline_value),
         scenarios=scenario_results_with_diag,
-        notes={"phase": "1.6", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
+        notes={"phase": "1.7A", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
     )
 
     paths.results_json.write_text(bundle.to_pretty_json(), encoding="utf-8")
