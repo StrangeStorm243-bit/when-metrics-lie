@@ -11,7 +11,8 @@
     "metric": "auc",
     "scenarios": [
         { "id": "label_noise", "params": { "p": 0.1 } },
-        { "id": "score_noise", "params": { "sigma": 0.05 } }
+        { "id": "score_noise", "params": { "sigma": 0.05 } },
+        { "id": "class_imbalance", "params": { "target_pos_rate": 0.2, "max_remove_frac": 0.8 } }
     ],
     "n_trials": 200,
     "seed": 42,

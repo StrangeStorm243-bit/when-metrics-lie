@@ -7,12 +7,12 @@ from pathlib import Path
 
 from metrics_lie.datasets.loaders import load_binary_csv
 from metrics_lie.metrics.core import METRICS
-from metrics_lie.schema import MetricSummary, ResultBundle
+from metrics_lie.schema import MetricSummary, ResultBundle, ScenarioResult
 from metrics_lie.spec import load_experiment_spec
 from metrics_lie.utils.paths import get_run_dir
 
 # Ensure scenario registration occurs (import-time registration)
-from metrics_lie.scenarios import label_noise, score_noise  # noqa: F401
+from metrics_lie.scenarios import class_imbalance, label_noise, score_noise, threshold_gaming  # noqa: F401
 from metrics_lie.runner import RunConfig, run_scenarios
 from metrics_lie.scenarios.base import ScenarioContext
 
@@ -56,6 +56,23 @@ def run(spec_path: str) -> str:
         ctx=ScenarioContext(task=spec.task),
     )
 
+    # --- Phase 1.5: add sensitivity_abs diagnostic ---
+    baseline_mean = baseline_value
+    scenario_results_with_diag = []
+    for sr in scenario_results:
+        sensitivity_abs = abs(sr.metric.mean - baseline_mean)
+        diag = sr.diagnostics.copy()
+        diag["sensitivity_abs"] = sensitivity_abs
+        scenario_results_with_diag.append(
+            ScenarioResult(
+                scenario_id=sr.scenario_id,
+                params=sr.params,
+                metric=sr.metric,
+                diagnostics=diag,
+                artifacts=sr.artifacts,
+            )
+        )
+
     run_id = uuid.uuid4().hex[:10].upper()
     paths = get_run_dir(run_id)
     paths.ensure()
@@ -65,15 +82,15 @@ def run(spec_path: str) -> str:
         experiment_name=spec.name,
         metric_name=spec.metric,
         baseline=_summary_from_single_value(baseline_value),
-        scenarios=scenario_results,
-        notes={"phase": "1.4", "spec_path": spec_path},
+        scenarios=scenario_results_with_diag,
+        notes={"phase": "1.5", "spec_path": spec_path},
     )
 
     paths.results_json.write_text(bundle.to_pretty_json(), encoding="utf-8")
-    print(f"✅ Wrote results: {paths.results_json}")
+    print(f"[OK] Wrote results: {paths.results_json}")
     print(f"Baseline {spec.metric} = {baseline_value:.6f}")
     if spec.scenarios:
-        print(f"✅ Ran {len(spec.scenarios)} scenario(s) with n_trials={spec.n_trials}")
+        print(f"[OK] Ran {len(spec.scenarios)} scenario(s) with n_trials={spec.n_trials}")
 
     return run_id
 
