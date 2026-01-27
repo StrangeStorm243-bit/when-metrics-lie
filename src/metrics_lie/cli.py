@@ -5,10 +5,17 @@ import json
 import uuid
 from pathlib import Path
 
+import numpy as np
+
+from metrics_lie.artifacts.plots import (
+    plot_calibration_curve,
+    plot_metric_distribution,
+    plot_subgroup_bars,
+)
 from metrics_lie.datasets.loaders import load_binary_csv
 from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
 from metrics_lie.metrics.core import METRICS
-from metrics_lie.schema import MetricSummary, ResultBundle, ScenarioResult
+from metrics_lie.schema import Artifact, MetricSummary, ResultBundle, ScenarioResult
 from metrics_lie.spec import load_experiment_spec
 from metrics_lie.utils.paths import get_run_dir
 
@@ -16,6 +23,7 @@ from metrics_lie.utils.paths import get_run_dir
 from metrics_lie.scenarios import class_imbalance, label_noise, score_noise, threshold_gaming  # noqa: F401
 from metrics_lie.runner import RunConfig, run_scenarios
 from metrics_lie.scenarios.base import ScenarioContext
+from metrics_lie.scenarios.registry import create_scenario
 
 
 def _summary_from_single_value(v: float) -> MetricSummary:
@@ -87,13 +95,96 @@ def run(spec_path: str) -> str:
     paths = get_run_dir(run_id)
     paths.ensure()
 
+    # --- Phase 1.7B: generate artifacts (plots) ---
+    rng_artifacts = np.random.default_rng(spec.seed)
+    scenario_results_with_artifacts = []
+    for sr in scenario_results_with_diag:
+        artifacts_list = []
+        scenario_id = sr.scenario_id
+
+        # 1. Metric distribution plot
+        try:
+            metric_dist_path = paths.artifacts_dir / f"metric_dist_{scenario_id}.png"
+            plot_metric_distribution(
+                metric_summary=sr.metric.model_dump(),
+                metric_name=spec.metric,
+                scenario_id=scenario_id,
+                out_path=metric_dist_path,
+            )
+            artifacts_list.append(
+                Artifact(
+                    kind="plot",
+                    path=f"artifacts/metric_dist_{scenario_id}.png",
+                    meta={"type": "metric_distribution"},
+                )
+            )
+        except Exception:
+            pass  # Skip if plot generation fails
+
+        # 2. Calibration curve (run one representative trial)
+        try:
+            scenario = create_scenario(scenario_id, sr.params)
+            y_p_rep, s_p_rep = scenario.apply(y_true, y_score, rng_artifacts, ScenarioContext(task=spec.task))
+            if len(y_p_rep) > 0 and len(s_p_rep) > 0:
+                cal_path = paths.artifacts_dir / f"calibration_{scenario_id}.png"
+                plot_calibration_curve(
+                    y_true=y_p_rep,
+                    y_score=s_p_rep,
+                    scenario_id=scenario_id,
+                    out_path=cal_path,
+                )
+                artifacts_list.append(
+                    Artifact(
+                        kind="plot",
+                        path=f"artifacts/calibration_{scenario_id}.png",
+                        meta={"type": "calibration_curve"},
+                    )
+                )
+        except Exception:
+            pass  # Skip if plot generation fails
+
+        # 3. Subgroup metric bars (if subgroup diagnostics exist)
+        try:
+            subgroup_metric = sr.diagnostics.get("subgroup_metric")
+            if subgroup_metric:
+                group_means = {k: v["mean"] for k, v in subgroup_metric.items()}
+                if group_means:
+                    subgroup_path = paths.artifacts_dir / f"subgroup_metric_{scenario_id}.png"
+                    plot_subgroup_bars(
+                        group_means=group_means,
+                        scenario_id=scenario_id,
+                        out_path=subgroup_path,
+                    )
+                    artifacts_list.append(
+                        Artifact(
+                            kind="plot",
+                            path=f"artifacts/subgroup_metric_{scenario_id}.png",
+                            meta={"type": "subgroup_comparison"},
+                        )
+                    )
+        except Exception:
+            pass  # Skip if plot generation fails
+
+        scenario_results_with_artifacts.append(
+            ScenarioResult(
+                scenario_id=sr.scenario_id,
+                params=sr.params,
+                metric=sr.metric,
+                diagnostics=sr.diagnostics,
+                artifacts=artifacts_list,
+            )
+        )
+
+        if artifacts_list:
+            print(f"[PLOT] Saved {len(artifacts_list)} artifacts for scenario {scenario_id}")
+
     bundle = ResultBundle(
         run_id=run_id,
         experiment_name=spec.name,
         metric_name=spec.metric,
         baseline=_summary_from_single_value(baseline_value),
-        scenarios=scenario_results_with_diag,
-        notes={"phase": "1.7A", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
+        scenarios=scenario_results_with_artifacts,
+        notes={"phase": "1.7B", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
     )
 
     paths.results_json.write_text(bundle.to_pretty_json(), encoding="utf-8")
