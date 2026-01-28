@@ -25,13 +25,9 @@ The system is designed to be:
 ---
 
 ## High-Level Architecture
-
-<img width="347" height="526" alt="image" src="https://github.com/user-attachments/assets/e3fab416-fc6c-4383-9179-82078b9171cb" />
-<img width="366" height="632" alt="image" src="https://github.com/user-attachments/assets/cd67aa53-d46c-4d40-9aea-3255dd4d76e0" />
-<img width="336" height="379" alt="image" src="https://github.com/user-attachments/assets/d53646df-a17d-4dcf-8eb4-db524fcd0784" />
+<img width="1024" height="1536" alt="ChatGPT Image Jan 27, 2026, 05_37_13 PM" src="https://github.com/user-attachments/assets/8df7e244-a13e-47fe-b2f7-036591169e49" />
 
 ---
-
 ## Design Principles
 
 ### 1. Declarative Experiments
