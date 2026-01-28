@@ -151,5 +151,6 @@ When Metrics Lie exists to make those failures visible **before** they become co
 
 ## Notes
 
-- Full Phase 1 implementation checklist: `docs/PHASE1_CHECKLIST.md`
+- Full Phase 1 implementation checklist: `PHASES1README.md`
 - Architecture and design notes: `docs/ARCHITECTURE.md`
+
