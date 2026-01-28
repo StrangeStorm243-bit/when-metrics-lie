@@ -60,6 +60,55 @@ def plot_metric_distribution(
     plt.close()
 
 
+def plot_threshold_curve(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    baseline_threshold: float,
+    optimized_threshold: float,
+    scenario_id: str,
+    out_path: Path,
+) -> None:
+    """
+    Plot accuracy vs threshold curve.
+    Marks baseline and optimized thresholds.
+    """
+    thresholds = np.linspace(0.05, 0.95, 19)
+    accuracies = []
+    for thresh in thresholds:
+        y_pred = (y_score >= thresh).astype(int)
+        acc = float(np.mean(y_pred == y_true))
+        accuracies.append(acc)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    ax.plot(thresholds, accuracies, "o-", linewidth=2, markersize=6, label="Accuracy")
+    ax.axvline(
+        baseline_threshold,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Baseline (t={baseline_threshold:.2f})",
+    )
+    ax.axvline(
+        optimized_threshold,
+        color="green",
+        linestyle="--",
+        linewidth=2,
+        label=f"Optimized (t={optimized_threshold:.2f})",
+    )
+
+    ax.set_xlabel("Threshold")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(f"Threshold optimization – {scenario_id}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(0, 1)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
 def plot_calibration_curve(
     y_true: np.ndarray,
     y_score: np.ndarray,
@@ -105,6 +154,55 @@ def plot_calibration_curve(
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def plot_threshold_curve(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    baseline_threshold: float,
+    optimized_threshold: float,
+    scenario_id: str,
+    out_path: Path,
+) -> None:
+    """
+    Plot accuracy vs threshold curve.
+    Marks baseline and optimized thresholds.
+    """
+    thresholds = np.linspace(0.05, 0.95, 19)
+    accuracies = []
+    for thresh in thresholds:
+        y_pred = (y_score >= thresh).astype(int)
+        acc = float(np.mean(y_pred == y_true))
+        accuracies.append(acc)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    ax.plot(thresholds, accuracies, "o-", linewidth=2, markersize=6, label="Accuracy")
+    ax.axvline(
+        baseline_threshold,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Baseline (t={baseline_threshold:.2f})",
+    )
+    ax.axvline(
+        optimized_threshold,
+        color="green",
+        linestyle="--",
+        linewidth=2,
+        label=f"Optimized (t={optimized_threshold:.2f})",
+    )
+
+    ax.set_xlabel("Threshold")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(f"Threshold optimization – {scenario_id}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(0, 1)
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -161,6 +259,55 @@ def plot_subgroup_bars(
         Patch(facecolor="lightblue", label="Other groups"),
     ]
     ax.legend(handles=legend_elements)
+
+    plt.tight_layout()
+    plt.savefig(out_path, dpi=150, bbox_inches="tight")
+    plt.close()
+
+
+def plot_threshold_curve(
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    baseline_threshold: float,
+    optimized_threshold: float,
+    scenario_id: str,
+    out_path: Path,
+) -> None:
+    """
+    Plot accuracy vs threshold curve.
+    Marks baseline and optimized thresholds.
+    """
+    thresholds = np.linspace(0.05, 0.95, 19)
+    accuracies = []
+    for thresh in thresholds:
+        y_pred = (y_score >= thresh).astype(int)
+        acc = float(np.mean(y_pred == y_true))
+        accuracies.append(acc)
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    ax.plot(thresholds, accuracies, "o-", linewidth=2, markersize=6, label="Accuracy")
+    ax.axvline(
+        baseline_threshold,
+        color="red",
+        linestyle="--",
+        linewidth=2,
+        label=f"Baseline (t={baseline_threshold:.2f})",
+    )
+    ax.axvline(
+        optimized_threshold,
+        color="green",
+        linestyle="--",
+        linewidth=2,
+        label=f"Optimized (t={optimized_threshold:.2f})",
+    )
+
+    ax.set_xlabel("Threshold")
+    ax.set_ylabel("Accuracy")
+    ax.set_title(f"Threshold optimization – {scenario_id}")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.set_xlim(0, 1)
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")

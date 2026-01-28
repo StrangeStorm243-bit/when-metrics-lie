@@ -11,6 +11,7 @@ from metrics_lie.artifacts.plots import (
     plot_calibration_curve,
     plot_metric_distribution,
     plot_subgroup_bars,
+    plot_threshold_curve,
 )
 from metrics_lie.datasets.loaders import load_binary_csv
 from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
@@ -164,6 +165,43 @@ def run(spec_path: str) -> str:
                     )
         except Exception:
             pass  # Skip if plot generation fails
+
+        # 4. Threshold curve (only for accuracy with metric_inflation)
+        if spec.metric == "accuracy":
+            try:
+                metric_inflation = sr.diagnostics.get("metric_inflation")
+                if metric_inflation:
+                    scenario = create_scenario(scenario_id, sr.params)
+                    y_p_rep, s_p_rep = scenario.apply(y_true, y_score, rng_artifacts, ScenarioContext(task=spec.task))
+                    if len(y_p_rep) > 0 and len(s_p_rep) > 0:
+                        # Get mean optimal threshold from diagnostics (approximate)
+                        # Use a representative threshold from the inflation data
+                        baseline_thresh = 0.5
+                        # Estimate optimized threshold from delta (use 0.5 + small adjustment as proxy)
+                        # Actually, we need to recompute or store it - let's use a simple heuristic
+                        # For now, use 0.5 as baseline and compute optimal from representative trial
+                        from metrics_lie.diagnostics.metric_gaming import find_optimal_threshold
+                        thresholds = np.linspace(0.05, 0.95, 19)
+                        opt_thresh, _ = find_optimal_threshold(y_p_rep, s_p_rep, thresholds)
+                        
+                        threshold_path = paths.artifacts_dir / f"threshold_curve_{scenario_id}.png"
+                        plot_threshold_curve(
+                            y_true=y_p_rep,
+                            y_score=s_p_rep,
+                            baseline_threshold=baseline_thresh,
+                            optimized_threshold=opt_thresh,
+                            scenario_id=scenario_id,
+                            out_path=threshold_path,
+                        )
+                        artifacts_list.append(
+                            Artifact(
+                                kind="plot",
+                                path=f"artifacts/threshold_curve_{scenario_id}.png",
+                                meta={"type": "threshold_optimization"},
+                            )
+                        )
+            except Exception:
+                pass  # Skip if plot generation fails
 
         scenario_results_with_artifacts.append(
             ScenarioResult(

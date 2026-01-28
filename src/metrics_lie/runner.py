@@ -6,6 +6,10 @@ from typing import Callable, Dict, List
 import numpy as np
 
 from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
+from metrics_lie.diagnostics.metric_gaming import (
+    accuracy_at_threshold,
+    find_optimal_threshold,
+)
 from metrics_lie.diagnostics.subgroups import (
     compute_group_sizes,
     group_indices,
@@ -58,6 +62,12 @@ def run_scenarios(
         briers: list[float] = []
         eces: list[float] = []
 
+        # Metric gaming: threshold optimization (only for accuracy)
+        baseline_accs: list[float] = []
+        optimized_accs: list[float] = []
+        optimal_thresholds: list[float] = []
+        gaming_trial_data: list[tuple[np.ndarray, np.ndarray]] = []
+
         # Subgroup diagnostics: per-group lists
         subgroup_metric_vals: Dict[str, list[float]] = {}
         subgroup_brier_vals: Dict[str, list[float]] = {}
@@ -73,6 +83,16 @@ def run_scenarios(
             vals.append(float(v))
             briers.append(brier_score(y_p, s_p))
             eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
+
+            # Metric gaming: threshold optimization (only for accuracy)
+            if metric_name == "accuracy":
+                thresholds = np.linspace(0.05, 0.95, 19)
+                baseline_acc = accuracy_at_threshold(y_p, s_p, 0.5)
+                opt_thresh, opt_acc = find_optimal_threshold(y_p, s_p, thresholds)
+                baseline_accs.append(baseline_acc)
+                optimized_accs.append(opt_acc)
+                optimal_thresholds.append(opt_thresh)
+                gaming_trial_data.append((y_p.copy(), s_p.copy()))
 
             # Subgroup diagnostics (only if subgroup provided and lengths align)
             if subgroup is not None and len(y_p) == len(y_true) and len(subgroup) == len(y_p):
@@ -150,6 +170,49 @@ def run_scenarios(
                     "means": {k: float(v) for k, v in group_means.items()},
                     "group_sizes": group_sizes,
                 }
+
+        # Metric gaming diagnostics (only for accuracy)
+        if metric_name == "accuracy" and len(baseline_accs) > 0:
+            baseline_mean = float(np.mean(baseline_accs))
+            optimized_mean = float(np.mean(optimized_accs))
+            delta = optimized_mean - baseline_mean
+            mean_opt_thresh = float(np.mean(optimal_thresholds))
+
+            # Downstream impacts: compute on representative trial with mean optimal threshold
+            downstream: Dict = {}
+            if gaming_trial_data:
+                # Use first trial as representative
+                y_rep, s_rep = gaming_trial_data[0]
+                y_pred_opt = (s_rep >= mean_opt_thresh).astype(int)
+                downstream["brier"] = float(brier_score(y_rep, s_rep))
+                downstream["ece"] = float(expected_calibration_error(y_rep, s_rep, n_bins=10))
+
+                # Subgroup gap at optimized threshold (if subgroup exists)
+                if subgroup is not None and len(y_rep) == len(y_true) and len(subgroup) == len(y_rep):
+                    groups = group_indices(subgroup)
+                    group_accs_opt: Dict[str, float] = {}
+                    for group_key, group_mask in groups.items():
+                        y_g = y_rep[group_mask]
+                        s_g = s_rep[group_mask]
+                        if len(y_g) > 0:
+                            acc_opt = accuracy_at_threshold(y_g, s_g, mean_opt_thresh)
+                            group_accs_opt[group_key] = acc_opt
+                    if group_accs_opt:
+                        worst = min(group_accs_opt.values())
+                        best = max(group_accs_opt.values())
+                        downstream["subgroup_gap"] = float(best - worst)
+                    else:
+                        downstream["subgroup_gap"] = None
+                else:
+                    downstream["subgroup_gap"] = None
+
+            diag["metric_inflation"] = {
+                "metric": "accuracy",
+                "baseline": baseline_mean,
+                "optimized": optimized_mean,
+                "delta": delta,
+                "downstream": downstream,
+            }
 
         results.append(
             ScenarioResult(
