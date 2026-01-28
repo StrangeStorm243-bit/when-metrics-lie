@@ -75,6 +75,10 @@ When Metrics Lie detects and quantifies this behavior explicitly.
 
 ## How It Works
 
+<img width="366" height="572" alt="image" src="https://github.com/user-attachments/assets/ed3211b0-97af-45c1-a6e1-0fcdc3c575f2" />
+
+
+
 
 Each step is deterministic, auditable, and designed to surface evaluation risk.
 
@@ -153,4 +157,5 @@ When Metrics Lie exists to make those failures visible **before** they become co
 
 - Full Phase 1 implementation checklist: `PHASES1README.md`
 - Architecture and design notes: `docs/ARCHITECTURE.md`
+
 
