@@ -21,8 +21,11 @@ from metrics_lie.spec import load_experiment_spec
 from metrics_lie.utils.paths import get_run_dir
 from metrics_lie.experiments.datasets import dataset_fingerprint_csv
 from metrics_lie.experiments.definition import ExperimentDefinition
-from metrics_lie.experiments.registry import upsert_experiment, log_run
+from metrics_lie.experiments.registry import upsert_experiment as upsert_experiment_jsonl, log_run as log_run_jsonl
 from metrics_lie.experiments.runs import RunRecord
+from metrics_lie.db.session import get_session
+from metrics_lie.db.crud import upsert_experiment, insert_run, update_run, insert_artifacts
+from metrics_lie.compare.compare import compare_runs
 
 # Ensure scenario registration occurs (import-time registration)
 from metrics_lie.scenarios import class_imbalance, label_noise, score_noise, threshold_gaming  # noqa: F401
@@ -42,7 +45,13 @@ def run(spec_path: str) -> str:
 
     dataset_fp = dataset_fingerprint_csv(spec.dataset.path)
     exp_def = ExperimentDefinition.from_spec(spec, dataset_fingerprint=dataset_fp)
-    upsert_experiment(exp_def)
+    
+    # Phase 2.2: Write to DB
+    with get_session() as session:
+        upsert_experiment(session, exp_def)
+    
+    # Phase 2.1: Keep JSONL logging optional
+    upsert_experiment_jsonl(exp_def)
 
     if spec.metric not in METRICS:
         raise ValueError(f"Unknown metric '{spec.metric}'. Supported: {sorted(METRICS.keys())}")
@@ -111,12 +120,23 @@ def run(spec_path: str) -> str:
         artifacts_dir=str(paths.artifacts_dir),
         seed_used=spec.seed,
     )
-    # initial queued record
-    log_run(run_record)
+    
+    # Phase 2.2: Write to DB (queued)
+    with get_session() as session:
+        insert_run(session, run_record)
+    
+    # Phase 2.1: Keep JSONL logging optional
+    log_run_jsonl(run_record)
 
     try:
         run_record.mark_running()
-        log_run(run_record)
+        
+        # Phase 2.2: Update DB (running)
+        with get_session() as session:
+            update_run(session, run_record)
+        
+        # Phase 2.1: Keep JSONL logging optional
+        log_run_jsonl(run_record)
 
         # --- Phase 1.7B: generate artifacts (plots) ---
         rng_artifacts = np.random.default_rng(spec.seed)
@@ -253,11 +273,31 @@ def run(spec_path: str) -> str:
         if spec.scenarios:
             print(f"[OK] Ran {len(spec.scenarios)} scenario(s) with n_trials={spec.n_trials}")
 
+        # Phase 2.2: Insert artifacts into DB
+        all_artifacts: list[Artifact] = []
+        for sr in scenario_results_with_artifacts:
+            all_artifacts.extend(sr.artifacts)
+        if all_artifacts:
+            with get_session() as session:
+                insert_artifacts(session, run_id, all_artifacts)
+
         run_record.mark_completed()
-        log_run(run_record)
+        
+        # Phase 2.2: Update DB (completed)
+        with get_session() as session:
+            update_run(session, run_record)
+        
+        # Phase 2.1: Keep JSONL logging optional
+        log_run_jsonl(run_record)
     except Exception as exc:  # pragma: no cover - simple logging wrapper
         run_record.mark_failed(str(exc))
-        log_run(run_record)
+        
+        # Phase 2.2: Update DB (failed)
+        with get_session() as session:
+            update_run(session, run_record)
+        
+        # Phase 2.1: Keep JSONL logging optional
+        log_run_jsonl(run_record)
         raise
 
     return run_id
@@ -270,10 +310,17 @@ def main() -> None:
     p_run = sub.add_parser("run", help="Run an experiment from a spec JSON (baseline + scenarios)")
     p_run.add_argument("spec", type=str, help="Path to experiment spec JSON")
 
+    p_compare = sub.add_parser("compare", help="Compare two runs by run_id and print a JSON report")
+    p_compare.add_argument("run_a", type=str, help="Run ID A")
+    p_compare.add_argument("run_b", type=str, help="Run ID B")
+
     args = parser.parse_args()
 
     if args.cmd == "run":
         run(args.spec)
+    elif args.cmd == "compare":
+        report = compare_runs(args.run_a, args.run_b)
+        print(json.dumps(report, indent=2, sort_keys=True))
 
 
 if __name__ == "__main__":
