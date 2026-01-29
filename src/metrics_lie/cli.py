@@ -45,6 +45,8 @@ from metrics_lie.worker import process_one_job
 from metrics_lie.compare.compare import compare_runs
 from metrics_lie.execution import run_from_spec_dict, rerun
 from metrics_lie.cli_format import format_table, short
+from metrics_lie.decision import extract_components, build_scorecard
+from metrics_lie.profiles import get_profile_or_load
 
 
 def run(spec_path: str) -> str:
@@ -63,6 +65,11 @@ def main() -> None:
     p_compare = sub.add_parser("compare", help="Compare two runs by run_id and print a JSON report")
     p_compare.add_argument("run_a", type=str, help="Run ID A")
     p_compare.add_argument("run_b", type=str, help="Run ID B")
+
+    p_score = sub.add_parser("score", help="Score two runs using a decision profile and print a JSON report")
+    p_score.add_argument("run_a", type=str, help="Run ID A")
+    p_score.add_argument("run_b", type=str, help="Run ID B")
+    p_score.add_argument("--profile", type=str, default="balanced", help="Profile preset name or JSON file path (default: balanced)")
 
     p_rerun = sub.add_parser("rerun", help="Deterministically rerun an experiment by run_id using stored spec")
     p_rerun.add_argument("run_id", type=str, help="Existing run ID to rerun")
@@ -107,6 +114,22 @@ def main() -> None:
     elif args.cmd == "compare":
         report = compare_runs(args.run_a, args.run_b)
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif args.cmd == "score":
+        report = compare_runs(args.run_a, args.run_b)
+        profile = get_profile_or_load(args.profile)
+        comps = extract_components(report, profile)
+        scorecard = build_scorecard(comps, profile)
+        
+        output = {
+            "run_a": args.run_a,
+            "run_b": args.run_b,
+            "profile": profile.name,
+            "scorecard": scorecard.model_dump(),
+            "risk_flags": report.get("risk_flags", []),
+            "regressions": report.get("regressions", {}),
+            "decision_components": comps.model_dump(),
+        }
+        print(json.dumps(output, indent=2, sort_keys=True))
     elif args.cmd == "rerun":
         rerun(args.run_id)
     elif args.cmd == "enqueue-run":
