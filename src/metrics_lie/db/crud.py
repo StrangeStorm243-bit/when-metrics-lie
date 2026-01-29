@@ -11,7 +11,7 @@ from metrics_lie.experiments.definition import ExperimentDefinition
 from metrics_lie.experiments.runs import RunRecord
 from metrics_lie.schema import Artifact
 
-from .models import Experiment, Run, Artifact as ArtifactModel
+from .models import Experiment, Run, Artifact as ArtifactModel, Job
 
 
 def _now_iso() -> str:
@@ -123,4 +123,81 @@ def get_experiment_id_for_run(session: Session, run_id: str) -> str:
     if run.experiment_id is None:
         raise ValueError(f"Run has no experiment_id: {run_id}")
     return run.experiment_id
+
+
+def enqueue_job_run_experiment(session: Session, experiment_id: str) -> str:
+    """Enqueue a job to run an experiment. Returns the job_id."""
+    import uuid
+    job_id = uuid.uuid4().hex[:10].upper()
+    job = Job(
+        job_id=job_id,
+        kind="run_experiment",
+        experiment_id=experiment_id,
+        run_id=None,
+        status="queued",
+        created_at=_now_iso(),
+        started_at=None,
+        finished_at=None,
+        error=None,
+        result_run_id=None,
+    )
+    session.add(job)
+    return job_id
+
+
+def enqueue_job_rerun(session: Session, run_id: str) -> str:
+    """Enqueue a job to rerun a run. Returns the job_id."""
+    import uuid
+    job_id = uuid.uuid4().hex[:10].upper()
+    job = Job(
+        job_id=job_id,
+        kind="rerun_run",
+        experiment_id=None,
+        run_id=run_id,
+        status="queued",
+        created_at=_now_iso(),
+        started_at=None,
+        finished_at=None,
+        error=None,
+        result_run_id=None,
+    )
+    session.add(job)
+    return job_id
+
+
+def claim_next_job(session: Session) -> Job | None:
+    """Claim the oldest queued job and mark it as running. Returns the job or None."""
+    job = session.scalar(
+        select(Job)
+        .where(Job.status == "queued")
+        .order_by(Job.created_at)
+        .limit(1)
+    )
+    if job is None:
+        return None
+    
+    job.status = "running"
+    job.started_at = _now_iso()
+    session.commit()
+    return job
+
+
+def mark_job_completed(session: Session, job_id: str, result_run_id: str) -> None:
+    """Mark a job as completed with the resulting run_id."""
+    job = session.scalar(select(Job).where(Job.job_id == job_id))
+    if job is None:
+        raise ValueError(f"Job not found: {job_id}")
+    job.status = "completed"
+    job.finished_at = _now_iso()
+    job.result_run_id = result_run_id
+
+
+def mark_job_failed(session: Session, job_id: str, error_msg: str) -> None:
+    """Mark a job as failed with an error message."""
+    job = session.scalar(select(Job).where(Job.job_id == job_id))
+    if job is None:
+        raise ValueError(f"Job not found: {job_id}")
+    job.status = "failed"
+    job.finished_at = _now_iso()
+    job.error = error_msg
 

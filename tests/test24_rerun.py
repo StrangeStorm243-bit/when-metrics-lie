@@ -9,7 +9,7 @@ from metrics_lie.db.crud import (
     get_experiment_id_for_run,
     get_experiment_spec_json,
 )
-from metrics_lie.cli import run_from_spec_dict
+from metrics_lie.execution import run_from_spec_dict
 
 
 def _make_temp_session(tmp_path):
@@ -83,14 +83,18 @@ def test_run_from_spec_dict_uses_same_experiment_id(tmp_path, monkeypatch):
                 return self_inner.session
 
             def __exit__(self_inner, exc_type, exc_val, exc_tb):
+                if exc_type is None:
+                    self_inner.session.commit()
+                else:
+                    self_inner.session.rollback()
                 self_inner.session.close()
 
         return _Ctx()
 
-    # Patch the CLI to use the temporary DB instead of the global one.
-    import metrics_lie.cli as cli_mod
+    # Patch the execution module to use the temporary DB instead of the global one.
+    import metrics_lie.execution as execution_mod
 
-    monkeypatch.setattr(cli_mod, "get_session", fake_get_session)
+    monkeypatch.setattr(execution_mod, "get_session", fake_get_session)
 
     # First run establishes the experiment in the temp DB.
     run_id_1 = run_from_spec_dict(spec_dict, spec_path_for_notes=str(spec_path))

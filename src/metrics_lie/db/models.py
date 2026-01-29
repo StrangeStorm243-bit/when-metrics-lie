@@ -64,3 +64,17 @@ class Artifact(Base):
     # Relationships
     run = relationship("Run", back_populates="artifacts")
 
+
+class Job(Base):
+    __tablename__ = "jobs"
+
+    job_id = Column(String, primary_key=True)
+    kind = Column(String, nullable=False)  # "run_experiment" or "rerun_run"
+    experiment_id = Column(String, ForeignKey("experiments.experiment_id"), nullable=True)
+    run_id = Column(String, ForeignKey("runs.run_id"), nullable=True)  # for rerun jobs
+    status = Column(String, nullable=False)  # queued, running, completed, failed
+    created_at = Column(String, nullable=False)  # ISO8601 UTC string
+    started_at = Column(String, nullable=True)  # ISO8601 UTC string
+    finished_at = Column(String, nullable=True)  # ISO8601 UTC string
+    error = Column(Text, nullable=True)
+    result_run_id = Column(String, nullable=True)  # the new run created by this job
