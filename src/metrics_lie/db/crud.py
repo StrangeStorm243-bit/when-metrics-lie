@@ -201,3 +201,60 @@ def mark_job_failed(session: Session, job_id: str, error_msg: str) -> None:
     job.finished_at = _now_iso()
     job.error = error_msg
 
+
+# Phase 2.6: Read helpers for CLI queries
+
+def list_experiments(session: Session, limit: int = 20) -> list[Experiment]:
+    """List experiments, ordered by created_at descending."""
+    stmt = select(Experiment).order_by(Experiment.created_at.desc()).limit(limit)
+    return list(session.scalars(stmt).all())
+
+
+def get_experiment(session: Session, experiment_id: str) -> Experiment:
+    """Get an experiment by ID. Raises ValueError if not found."""
+    return get_experiment_by_id(session, experiment_id)
+
+
+def list_runs(
+    session: Session,
+    limit: int = 50,
+    status: str | None = None,
+    experiment_id: str | None = None,
+) -> list[Run]:
+    """List runs with optional filters, ordered by created_at descending."""
+    stmt = select(Run).order_by(Run.created_at.desc())
+    if status is not None:
+        stmt = stmt.where(Run.status == status)
+    if experiment_id is not None:
+        stmt = stmt.where(Run.experiment_id == experiment_id)
+    stmt = stmt.limit(limit)
+    return list(session.scalars(stmt).all())
+
+
+def get_run(session: Session, run_id: str) -> Run:
+    """Get a run by ID. Raises ValueError if not found."""
+    return get_run_by_id(session, run_id)
+
+
+def list_jobs(session: Session, limit: int = 50, status: str | None = None) -> list[Job]:
+    """List jobs with optional status filter, ordered by created_at descending."""
+    stmt = select(Job).order_by(Job.created_at.desc())
+    if status is not None:
+        stmt = stmt.where(Job.status == status)
+    stmt = stmt.limit(limit)
+    return list(session.scalars(stmt).all())
+
+
+def get_job(session: Session, job_id: str) -> Job:
+    """Get a job by ID. Raises ValueError if not found."""
+    job = session.scalar(select(Job).where(Job.job_id == job_id))
+    if job is None:
+        raise ValueError(f"Job not found: {job_id}")
+    return job
+
+
+def list_artifacts_for_run(session: Session, run_id: str) -> list[ArtifactModel]:
+    """List all artifacts for a run."""
+    stmt = select(ArtifactModel).where(ArtifactModel.run_id == run_id).order_by(ArtifactModel.created_at)
+    return list(session.scalars(stmt).all())
+

@@ -33,10 +33,18 @@ from metrics_lie.db.crud import (
     get_experiment_id_for_run,
     enqueue_job_run_experiment,
     enqueue_job_rerun,
+    list_experiments,
+    get_experiment,
+    list_runs,
+    get_run,
+    list_jobs,
+    get_job,
+    list_artifacts_for_run,
 )
 from metrics_lie.worker import process_one_job
 from metrics_lie.compare.compare import compare_runs
 from metrics_lie.execution import run_from_spec_dict, rerun
+from metrics_lie.cli_format import format_table, short
 
 
 def run(spec_path: str) -> str:
@@ -67,6 +75,31 @@ def main() -> None:
 
     p_worker_once = sub.add_parser("worker-once", help="Process one job from the queue and exit")
 
+    # Phase 2.6: Query commands
+    p_experiments = sub.add_parser("experiments", help="Query experiments")
+    exp_sub = p_experiments.add_subparsers(dest="exp_cmd", required=True)
+    exp_list = exp_sub.add_parser("list", help="List experiments")
+    exp_list.add_argument("--limit", type=int, default=20, help="Maximum number of results")
+    exp_show = exp_sub.add_parser("show", help="Show experiment details")
+    exp_show.add_argument("experiment_id", type=str, help="Experiment ID")
+
+    p_runs = sub.add_parser("runs", help="Query runs")
+    runs_sub = p_runs.add_subparsers(dest="runs_cmd", required=True)
+    runs_list = runs_sub.add_parser("list", help="List runs")
+    runs_list.add_argument("--limit", type=int, default=50, help="Maximum number of results")
+    runs_list.add_argument("--status", type=str, help="Filter by status")
+    runs_list.add_argument("--experiment", type=str, help="Filter by experiment_id")
+    runs_show = runs_sub.add_parser("show", help="Show run details")
+    runs_show.add_argument("run_id", type=str, help="Run ID")
+
+    p_jobs = sub.add_parser("jobs", help="Query jobs")
+    jobs_sub = p_jobs.add_subparsers(dest="jobs_cmd", required=True)
+    jobs_list = jobs_sub.add_parser("list", help="List jobs")
+    jobs_list.add_argument("--limit", type=int, default=50, help="Maximum number of results")
+    jobs_list.add_argument("--status", type=str, help="Filter by status")
+    jobs_show = jobs_sub.add_parser("show", help="Show job details")
+    jobs_show.add_argument("job_id", type=str, help="Job ID")
+
     args = parser.parse_args()
 
     if args.cmd == "run":
@@ -90,6 +123,150 @@ def main() -> None:
             print("[OK] Processed 1 job")
         else:
             print("[INFO] No jobs available")
+    elif args.cmd == "experiments":
+        if args.exp_cmd == "list":
+            with get_session() as session:
+                experiments = list_experiments(session, limit=args.limit)
+                if not experiments:
+                    print("No experiments found.")
+                else:
+                    rows = []
+                    for exp in experiments:
+                        rows.append([
+                            exp.experiment_id,
+                            exp.metric,
+                            str(exp.n_trials),
+                            str(exp.seed),
+                            short(exp.dataset_fingerprint, 10),
+                            exp.created_at[:19] if len(exp.created_at) > 19 else exp.created_at,
+                        ])
+                    print(format_table(rows, [
+                        "experiment_id",
+                        "metric",
+                        "n_trials",
+                        "seed",
+                        "dataset_fp",
+                        "created_at",
+                    ]))
+        elif args.exp_cmd == "show":
+            with get_session() as session:
+                try:
+                    exp = get_experiment(session, args.experiment_id)
+                    print(f"experiment_id: {exp.experiment_id}")
+                    print(f"name: {exp.name}")
+                    print(f"task: {exp.task}")
+                    print(f"metric: {exp.metric}")
+                    print(f"n_trials: {exp.n_trials}")
+                    print(f"seed: {exp.seed}")
+                    print(f"dataset_fingerprint: {exp.dataset_fingerprint}")
+                    print(f"dataset_schema_json: {exp.dataset_schema_json}")
+                    print(f"scenarios_json: {exp.scenarios_json}")
+                    print(f"created_at: {exp.created_at}")
+                    spec_len = len(exp.spec_json) if exp.spec_json else 0
+                    print(f"spec_json length: {spec_len}")
+                except ValueError as e:
+                    print(f"Error: {e}")
+    elif args.cmd == "runs":
+        if args.runs_cmd == "list":
+            with get_session() as session:
+                runs = list_runs(
+                    session,
+                    limit=args.limit,
+                    status=args.status,
+                    experiment_id=args.experiment,
+                )
+                if not runs:
+                    print("No runs found.")
+                else:
+                    rows = []
+                    for r in runs:
+                        rows.append([
+                            r.run_id,
+                            r.experiment_id,
+                            r.status,
+                            r.created_at[:19] if len(r.created_at) > 19 else r.created_at,
+                            r.rerun_of if r.rerun_of else "-",
+                            r.results_path,
+                        ])
+                    print(format_table(rows, [
+                        "run_id",
+                        "experiment_id",
+                        "status",
+                        "created_at",
+                        "rerun_of",
+                        "results_path",
+                    ]))
+        elif args.runs_cmd == "show":
+            with get_session() as session:
+                try:
+                    run = get_run(session, args.run_id)
+                    print(f"run_id: {run.run_id}")
+                    print(f"experiment_id: {run.experiment_id}")
+                    print(f"status: {run.status}")
+                    print(f"created_at: {run.created_at}")
+                    print(f"started_at: {run.started_at if run.started_at else '-'}")
+                    print(f"finished_at: {run.finished_at if run.finished_at else '-'}")
+                    print(f"rerun_of: {run.rerun_of if run.rerun_of else '-'}")
+                    print(f"results_path: {run.results_path}")
+                    print(f"artifacts_dir: {run.artifacts_dir}")
+                    if run.error:
+                        print(f"error: {run.error}")
+                    
+                    artifacts = list_artifacts_for_run(session, args.run_id)
+                    print("\nArtifacts:")
+                    if artifacts:
+                        for art in artifacts:
+                            print(f"  - {art.path} ({art.kind})")
+                    else:
+                        print("  (none)")
+                except ValueError as e:
+                    print(f"Error: {e}")
+    elif args.cmd == "jobs":
+        if args.jobs_cmd == "list":
+            with get_session() as session:
+                jobs = list_jobs(session, limit=args.limit, status=args.status)
+                if not jobs:
+                    print("No jobs found.")
+                else:
+                    rows = []
+                    for j in jobs:
+                        rows.append([
+                            j.job_id,
+                            j.kind,
+                            j.status,
+                            j.created_at[:19] if len(j.created_at) > 19 else j.created_at,
+                            j.started_at[:19] if j.started_at and len(j.started_at) > 19 else (j.started_at if j.started_at else "-"),
+                            j.finished_at[:19] if j.finished_at and len(j.finished_at) > 19 else (j.finished_at if j.finished_at else "-"),
+                            j.result_run_id if j.result_run_id else "-",
+                        ])
+                    print(format_table(rows, [
+                        "job_id",
+                        "kind",
+                        "status",
+                        "created_at",
+                        "started_at",
+                        "finished_at",
+                        "result_run_id",
+                    ]))
+        elif args.jobs_cmd == "show":
+            with get_session() as session:
+                try:
+                    job = get_job(session, args.job_id)
+                    print(f"job_id: {job.job_id}")
+                    print(f"kind: {job.kind}")
+                    print(f"status: {job.status}")
+                    if job.experiment_id:
+                        print(f"experiment_id: {job.experiment_id}")
+                    if job.run_id:
+                        print(f"run_id: {job.run_id}")
+                    print(f"created_at: {job.created_at}")
+                    print(f"started_at: {job.started_at if job.started_at else '-'}")
+                    print(f"finished_at: {job.finished_at if job.finished_at else '-'}")
+                    print(f"result_run_id: {job.result_run_id if job.result_run_id else '-'}")
+                    if job.error:
+                        print(f"error: {job.error}")
+                except ValueError as e:
+                    print(f"Error: {e}")
 
 
 if __name__ == "__main__":
