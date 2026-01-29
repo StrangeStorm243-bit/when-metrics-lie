@@ -24,8 +24,16 @@ from metrics_lie.experiments.definition import ExperimentDefinition
 from metrics_lie.experiments.registry import upsert_experiment as upsert_experiment_jsonl, log_run as log_run_jsonl
 from metrics_lie.experiments.runs import RunRecord
 from metrics_lie.db.session import get_session
-from metrics_lie.db.crud import upsert_experiment, insert_run, update_run, insert_artifacts
+from metrics_lie.db.crud import (
+    upsert_experiment,
+    insert_run,
+    update_run,
+    insert_artifacts,
+    get_experiment_spec_json,
+    get_experiment_id_for_run,
+)
 from metrics_lie.compare.compare import compare_runs
+from metrics_lie.experiments.identity import canonical_json
 
 # Ensure scenario registration occurs (import-time registration)
 from metrics_lie.scenarios import class_imbalance, label_noise, score_noise, threshold_gaming  # noqa: F401
@@ -39,17 +47,25 @@ def _summary_from_single_value(v: float) -> MetricSummary:
     return MetricSummary(mean=v, std=0.0, q05=v, q50=v, q95=v, n=1)
 
 
-def run(spec_path: str) -> str:
-    spec_json = json.loads(Path(spec_path).read_text())
-    spec = load_experiment_spec(spec_json)
+def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = None, rerun_of: str | None = None) -> str:
+    """
+    Execute an experiment run given a parsed spec dictionary.
+
+    This is the canonical execution path used both for CLI `run` (from file)
+    and for `rerun` (from a stored spec_json snapshot in the DB).
+    """
+    spec = load_experiment_spec(spec_dict)
 
     dataset_fp = dataset_fingerprint_csv(spec.dataset.path)
     exp_def = ExperimentDefinition.from_spec(spec, dataset_fingerprint=dataset_fp)
-    
+
+    # Canonical JSON snapshot of the original spec for deterministic reruns.
+    spec_json_str = canonical_json(spec_dict)
+
     # Phase 2.2: Write to DB
     with get_session() as session:
-        upsert_experiment(session, exp_def)
-    
+        upsert_experiment(session, exp_def, spec_json_str)
+
     # Phase 2.1: Keep JSONL logging optional
     upsert_experiment_jsonl(exp_def)
 
@@ -119,6 +135,7 @@ def run(spec_path: str) -> str:
         results_path=str(paths.results_json),
         artifacts_dir=str(paths.artifacts_dir),
         seed_used=spec.seed,
+        rerun_of=rerun_of,
     )
     
     # Phase 2.2: Write to DB (queued)
@@ -258,13 +275,19 @@ def run(spec_path: str) -> str:
             if artifacts_list:
                 print(f"[PLOT] Saved {len(artifacts_list)} artifacts for scenario {scenario_id}")
 
+        notes = {
+            "phase": "1.7B",
+            "spec_path": spec_path_for_notes,
+            "baseline_diagnostics": baseline_cal,
+        }
+
         bundle = ResultBundle(
             run_id=run_id,
             experiment_name=spec.name,
             metric_name=spec.metric,
             baseline=_summary_from_single_value(baseline_value),
             scenarios=scenario_results_with_artifacts,
-            notes={"phase": "1.7B", "spec_path": spec_path, "baseline_diagnostics": baseline_cal},
+            notes=notes,
         )
 
         paths.results_json.write_text(bundle.to_pretty_json(), encoding="utf-8")
@@ -303,6 +326,37 @@ def run(spec_path: str) -> str:
     return run_id
 
 
+def run(spec_path: str) -> str:
+    """Run an experiment from a spec JSON file path."""
+    spec_dict = json.loads(Path(spec_path).read_text())
+    return run_from_spec_dict(spec_dict, spec_path_for_notes=spec_path)
+
+
+def rerun(run_id: str) -> str:
+    """
+    Deterministically rerun a completed experiment using the stored spec_json snapshot.
+
+    This creates a new run (with a new run_id) linked to the same experiment_id,
+    and optionally records the original run_id in the DB.
+    """
+    with get_session() as session:
+        experiment_id = get_experiment_id_for_run(session, run_id)
+        spec_json_str = get_experiment_spec_json(session, experiment_id)
+
+    if not spec_json_str:
+        raise ValueError(
+            "No stored spec_json found for experiment. "
+            "Please run database migrations with 'alembic upgrade head' before using 'rerun'."
+        )
+
+    spec_dict = json.loads(spec_json_str)
+    # Use a descriptive marker in notes so results.json keeps the same schema.
+    spec_path_for_notes = f"<rerun_of:{run_id}>"
+    new_run_id = run_from_spec_dict(spec_dict, spec_path_for_notes=spec_path_for_notes, rerun_of=run_id)
+    print(new_run_id)
+    return new_run_id
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metrics-lie")
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -314,6 +368,9 @@ def main() -> None:
     p_compare.add_argument("run_a", type=str, help="Run ID A")
     p_compare.add_argument("run_b", type=str, help="Run ID B")
 
+    p_rerun = sub.add_parser("rerun", help="Deterministically rerun an experiment by run_id using stored spec")
+    p_rerun.add_argument("run_id", type=str, help="Existing run ID to rerun")
+
     args = parser.parse_args()
 
     if args.cmd == "run":
@@ -321,6 +378,8 @@ def main() -> None:
     elif args.cmd == "compare":
         report = compare_runs(args.run_a, args.run_b)
         print(json.dumps(report, indent=2, sort_keys=True))
+    elif args.cmd == "rerun":
+        rerun(args.run_id)
 
 
 if __name__ == "__main__":

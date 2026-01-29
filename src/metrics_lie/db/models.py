@@ -23,6 +23,8 @@ class Experiment(Base):
     scenarios_json = Column(Text, nullable=False)  # JSON string
     created_at = Column(String, nullable=False)  # ISO8601 UTC string
     spec_schema_version = Column(String, nullable=True)
+    # Canonical JSON snapshot of the experiment spec (semantics), used for deterministic reruns.
+    spec_json = Column(Text, nullable=False, default="")
 
     # Relationships
     runs = relationship("Run", back_populates="experiment", cascade="all, delete-orphan")
@@ -41,6 +43,8 @@ class Run(Base):
     artifacts_dir = Column(String, nullable=False)
     seed_used = Column(Integer, nullable=False)
     error = Column(Text, nullable=True)
+    # Optional linkage to the original run when this is a rerun.
+    rerun_of = Column(String, nullable=True)
 
     # Relationships
     experiment = relationship("Experiment", back_populates="runs")

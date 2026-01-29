@@ -25,6 +25,8 @@ class RunRecord:
     artifacts_dir: str = ""
     seed_used: int = 0
     error: Optional[str] = None
+    # Optional linkage to an original run when this record represents a rerun.
+    rerun_of: Optional[str] = None
 
     def mark_running(self) -> None:
         self.status = "running"

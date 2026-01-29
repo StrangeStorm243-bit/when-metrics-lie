@@ -18,7 +18,7 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def upsert_experiment(session: Session, exp_def: ExperimentDefinition) -> None:
+def upsert_experiment(session: Session, exp_def: ExperimentDefinition, spec_json_str: str) -> None:
     """Insert or update an experiment definition."""
     existing = session.scalar(select(Experiment).where(Experiment.experiment_id == exp_def.experiment_id))
     
@@ -33,6 +33,7 @@ def upsert_experiment(session: Session, exp_def: ExperimentDefinition) -> None:
         existing.dataset_schema_json = json.dumps(exp_def.dataset)
         existing.scenarios_json = json.dumps(exp_def.scenarios)
         existing.spec_schema_version = exp_def.spec_schema_version
+        existing.spec_json = spec_json_str
     else:
         # Insert new
         experiment = Experiment(
@@ -47,6 +48,7 @@ def upsert_experiment(session: Session, exp_def: ExperimentDefinition) -> None:
             scenarios_json=json.dumps(exp_def.scenarios),
             created_at=exp_def.created_at,
             spec_schema_version=exp_def.spec_schema_version,
+            spec_json=spec_json_str,
         )
         session.add(experiment)
 
@@ -64,6 +66,7 @@ def insert_run(session: Session, run_record: RunRecord) -> None:
         artifacts_dir=run_record.artifacts_dir,
         seed_used=run_record.seed_used,
         error=run_record.error,
+        rerun_of=getattr(run_record, "rerun_of", None),
     )
     session.add(run)
 
@@ -101,4 +104,23 @@ def get_run_by_id(session: Session, run_id: str) -> Run:
 def get_results_path_for_run(session: Session, run_id: str) -> str:
     run = get_run_by_id(session, run_id)
     return run.results_path
+
+
+def get_experiment_by_id(session: Session, experiment_id: str) -> Experiment:
+    experiment = session.scalar(select(Experiment).where(Experiment.experiment_id == experiment_id))
+    if experiment is None:
+        raise ValueError(f"Experiment not found: {experiment_id}")
+    return experiment
+
+
+def get_experiment_spec_json(session: Session, experiment_id: str) -> str:
+    experiment = get_experiment_by_id(session, experiment_id)
+    return experiment.spec_json
+
+
+def get_experiment_id_for_run(session: Session, run_id: str) -> str:
+    run = get_run_by_id(session, run_id)
+    if run.experiment_id is None:
+        raise ValueError(f"Run has no experiment_id: {run_id}")
+    return run.experiment_id
 
