@@ -30,6 +30,7 @@ htmlcov/
 
 # Project-specific
 runs/
+.spectra_registry/
 .env
 .DS_Store
 
