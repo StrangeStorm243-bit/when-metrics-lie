@@ -224,18 +224,18 @@ def main() -> None:
         elif args.runs_cmd == "show":
             with get_session() as session:
                 try:
-                    run = get_run(session, args.run_id)
-                    print(f"run_id: {run.run_id}")
-                    print(f"experiment_id: {run.experiment_id}")
-                    print(f"status: {run.status}")
-                    print(f"created_at: {run.created_at}")
-                    print(f"started_at: {run.started_at if run.started_at else '-'}")
-                    print(f"finished_at: {run.finished_at if run.finished_at else '-'}")
-                    print(f"rerun_of: {run.rerun_of if run.rerun_of else '-'}")
-                    print(f"results_path: {run.results_path}")
-                    print(f"artifacts_dir: {run.artifacts_dir}")
-                    if run.error:
-                        print(f"error: {run.error}")
+                    run_row = get_run(session, args.run_id)
+                    print(f"run_id: {run_row.run_id}")
+                    print(f"experiment_id: {run_row.experiment_id}")
+                    print(f"status: {run_row.status}")
+                    print(f"created_at: {run_row.created_at}")
+                    print(f"started_at: {run_row.started_at if run_row.started_at else '-'}")
+                    print(f"finished_at: {run_row.finished_at if run_row.finished_at else '-'}")
+                    print(f"rerun_of: {run_row.rerun_of if run_row.rerun_of else '-'}")
+                    print(f"results_path: {run_row.results_path}")
+                    print(f"artifacts_dir: {run_row.artifacts_dir}")
+                    if run_row.error:
+                        print(f"error: {run_row.error}")
                     
                     artifacts = list_artifacts_for_run(session, args.run_id)
                     print("\nArtifacts:")
