@@ -24,6 +24,9 @@ dev = [
   "ruff>=0.3"
 ]
 
+[project.scripts]
+spectra = "metrics_lie.cli:main"
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 
