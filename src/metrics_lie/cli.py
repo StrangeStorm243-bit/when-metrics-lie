@@ -47,6 +47,7 @@ from metrics_lie.execution import run_from_spec_dict, rerun
 from metrics_lie.cli_format import format_table, short
 from metrics_lie.decision import extract_components, build_scorecard
 from metrics_lie.profiles import get_profile_or_load
+from metrics_lie import __version__
 
 
 def run(spec_path: str) -> str:
@@ -57,6 +58,7 @@ def run(spec_path: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(prog="metrics-lie")
+    parser.add_argument("--version", action="version", version=f"Spectra {__version__}")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_run = sub.add_parser("run", help="Run an experiment from a spec JSON (baseline + scenarios)")
