@@ -24,6 +24,7 @@ export default function ExperimentPage() {
   const [resultsError, setResultsError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [copiedMessage, setCopiedMessage] = useState<string | null>(null);
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadData = useCallback(async (silent = false) => {
@@ -132,6 +133,56 @@ export default function ExperimentPage() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  }
+
+  async function handleCopySummary() {
+    if (!experiment || !result) return;
+    
+    const worstScenario = result.scenario_results.length > 0
+      ? result.scenario_results.reduce((min, s) => (s.delta < min.delta ? s : min))
+      : null;
+    const topFlags = result.flags
+      .sort((a, b) => {
+        const severityOrder = { critical: 0, warn: 1, info: 2 };
+        return severityOrder[a.severity] - severityOrder[b.severity];
+      })
+      .slice(0, 3)
+      .map(f => f.code);
+    
+    const summary = [
+      `Experiment: ${experiment.name} (${experiment.id})`,
+      `Status: ${experiment.status}`,
+      `Metric: ${experiment.metric_id}`,
+      `Stress Suite: ${experiment.stress_suite_id}`,
+      `Headline Score: ${result.headline_score.toFixed(4)}`,
+      worstScenario ? `Worst Scenario: ${worstScenario.scenario_name} (Δ=${worstScenario.delta.toFixed(4)})` : "Worst Scenario: N/A",
+      `Flags: ${result.flags.length} total (top: ${topFlags.join(", ") || "none"})`,
+      `Run ID: ${result.run_id}`,
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      setCopiedMessage("Summary copied!");
+      setTimeout(() => setCopiedMessage(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy summary:", err);
+    }
+  }
+
+  async function handleCopyJSON() {
+    if (!result) return;
+    const jsonStr = JSON.stringify(result, null, 2);
+    try {
+      await navigator.clipboard.writeText(jsonStr);
+      setCopiedMessage("JSON copied!");
+      setTimeout(() => setCopiedMessage(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy JSON:", err);
+    }
+  }
+
+  function handlePrint() {
+    window.print();
   }
 
   function getStatusColor(status: string): string {
@@ -375,6 +426,7 @@ export default function ExperimentPage() {
           <button
             onClick={() => loadData()}
             disabled={loading}
+            className="no-print"
             style={{
               padding: "0.5rem 1rem",
               backgroundColor: loading ? "#ccc" : "#0070f3",
@@ -389,6 +441,7 @@ export default function ExperimentPage() {
           </button>
           <button
             onClick={handleExportJSON}
+            className="no-print"
             style={{
               padding: "0.5rem 1rem",
               backgroundColor: "#6c757d",
@@ -401,6 +454,79 @@ export default function ExperimentPage() {
           >
             Export JSON
           </button>
+          <button
+            onClick={handlePrint}
+            className="no-print"
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            Print
+          </button>
+        </div>
+      </div>
+
+      {/* Share Block */}
+      <div
+        className="no-print"
+        style={{
+          padding: "1rem",
+          border: "1px solid #e0e0e0",
+          borderRadius: "8px",
+          backgroundColor: "#f8f9fa",
+          marginBottom: "1.5rem",
+        }}
+      >
+        <h2 style={{ marginTop: 0, marginBottom: "0.75rem", fontSize: "1rem" }}>Share</h2>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
+          <button
+            onClick={handleCopySummary}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            Copy Summary
+          </button>
+          <button
+            onClick={handleCopyJSON}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            Copy JSON
+          </button>
+          {copiedMessage && (
+            <span
+              style={{
+                padding: "0.25rem 0.75rem",
+                backgroundColor: "#28a745",
+                color: "white",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                fontWeight: "500",
+              }}
+            >
+              {copiedMessage}
+            </span>
+          )}
         </div>
       </div>
 
