@@ -28,6 +28,13 @@ export interface StressSuitePreset {
   description: string;
 }
 
+export interface DatasetPreset {
+  id: string;
+  name: string;
+  path: string;
+  description?: string;
+}
+
 export interface RunRequest {
   seed?: number | null;
 }
@@ -176,6 +183,13 @@ export async function getMetricPresets(): Promise<MetricPreset[]> {
  */
 export async function getStressSuitePresets(): Promise<StressSuitePreset[]> {
   return apiFetch<StressSuitePreset[]>("/presets/stress-suites");
+}
+
+/**
+ * Get available dataset presets.
+ */
+export async function getDatasetPresets(): Promise<DatasetPreset[]> {
+  return apiFetch<DatasetPreset[]>("/presets/datasets");
 }
 
 /**

@@ -7,8 +7,10 @@ import {
   runExperiment,
   getMetricPresets,
   getStressSuitePresets,
+  getDatasetPresets,
   type MetricPreset,
   type StressSuitePreset,
+  type DatasetPreset,
 } from "@/lib/api";
 
 export default function NewExperimentPage() {
@@ -19,6 +21,8 @@ export default function NewExperimentPage() {
   const [notes, setNotes] = useState("");
   const [metrics, setMetrics] = useState<MetricPreset[]>([]);
   const [stressSuites, setStressSuites] = useState<StressSuitePreset[]>([]);
+  const [datasets, setDatasets] = useState<DatasetPreset[]>([]);
+  const [datasetPath, setDatasetPath] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPresets, setLoadingPresets] = useState(true);
@@ -26,17 +30,22 @@ export default function NewExperimentPage() {
   useEffect(() => {
     async function loadPresets() {
       try {
-        const [metricsData, suitesData] = await Promise.all([
+        const [metricsData, suitesData, datasetsData] = await Promise.all([
           getMetricPresets(),
           getStressSuitePresets(),
+          getDatasetPresets(),
         ]);
         setMetrics(metricsData);
         setStressSuites(suitesData);
+        setDatasets(datasetsData);
         if (metricsData.length > 0) {
           setMetricId(metricsData[0].id);
         }
         if (suitesData.length > 0) {
           setStressSuiteId(suitesData[0].id);
+        }
+        if (datasetsData.length > 0) {
+          setDatasetPath(datasetsData[0].path);
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to load presets");
@@ -59,6 +68,7 @@ export default function NewExperimentPage() {
         metric_id: metricId,
         stress_suite_id: stressSuiteId,
         notes: notes || undefined,
+        config: datasetPath ? { dataset_path: datasetPath } : undefined,
       });
 
       // Run experiment
@@ -178,6 +188,49 @@ export default function NewExperimentPage() {
               </option>
             ))}
           </select>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            htmlFor="dataset"
+            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
+          >
+            Dataset {datasets.length === 0 ? "(none found)" : ""}
+          </label>
+          {datasets.length === 0 ? (
+            <div
+              style={{
+                padding: "0.75rem",
+                backgroundColor: "#fff3cd",
+                border: "1px solid #ffc107",
+                borderRadius: "4px",
+                fontSize: "0.875rem",
+                color: "#856404",
+              }}
+            >
+              No datasets found. Place CSV files under the repo's data/ directory (e.g., data/demo_binary_label_noise.csv).
+            </div>
+          ) : (
+            <select
+              id="dataset"
+              value={datasetPath}
+              onChange={(e) => setDatasetPath(e.target.value)}
+              disabled={loading}
+              style={{
+                width: "100%",
+                padding: "0.5rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                fontSize: "1rem",
+              }}
+            >
+              {datasets.map((d) => (
+                <option key={d.id} value={d.path}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div style={{ marginBottom: "1.5rem" }}>
