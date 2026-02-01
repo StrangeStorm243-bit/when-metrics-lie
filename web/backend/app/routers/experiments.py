@@ -83,9 +83,17 @@ async def run_experiment_endpoint(experiment_id: str, run_req: RunRequest) -> Ru
             detail=f"Experiment {experiment_id} not found",
         )
 
+    # Check if experiment is already running
+    if summary.status == "running":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Experiment already running",
+        )
+
     # Update status to running
     summary.status = "running"
     summary.last_run_at = datetime.now(timezone.utc)
+    summary.error_message = None  # Clear any previous error
     save_experiment(experiment_id, create_req, summary)
 
     # Create run

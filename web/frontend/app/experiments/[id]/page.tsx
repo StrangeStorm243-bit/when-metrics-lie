@@ -1,8 +1,15 @@
 "use client";
 
 import { useRouter, useParams } from "next/navigation";
-import { useState, useEffect } from "react";
-import { getExperiment, getResults, type ExperimentSummary, type ResultSummary } from "@/lib/api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  getExperiment,
+  getResults,
+  runExperiment,
+  ApiError,
+  type ExperimentSummary,
+  type ResultSummary,
+} from "@/lib/api";
 
 export default function ExperimentPage() {
   const router = useRouter();
@@ -14,9 +21,14 @@ export default function ExperimentPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [resultsError, setResultsError] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  async function loadData() {
-    setLoading(true);
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setError(null);
     setResultsError(null);
 
@@ -24,34 +36,88 @@ export default function ExperimentPage() {
       // Load experiment status
       const exp = await getExperiment(experimentId);
       setExperiment(exp);
+      setLastUpdated(new Date());
 
       // Try to load results
       try {
         const res = await getResults(experimentId);
         setResult(res);
       } catch (e) {
-        if (e instanceof Error && e.message.includes("404")) {
+        if (e instanceof ApiError && e.status === 404) {
           setResult(null);
         } else {
           setResultsError(e instanceof Error ? e.message : "Failed to load results");
         }
       }
     } catch (e) {
-      if (e instanceof Error && e.message.includes("404")) {
+      if (e instanceof ApiError && e.status === 404) {
         router.push("/experiments/not-found");
         return;
       }
       setError(e instanceof Error ? e.message : "Failed to load experiment");
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
+  }, [experimentId, router]);
+
+  function stopPolling() {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+  }
+
+  function startPolling() {
+    stopPolling();
+    pollingIntervalRef.current = setInterval(() => {
+      loadData(true);
+    }, 2000);
   }
 
   useEffect(() => {
     if (experimentId) {
       loadData();
     }
-  }, [experimentId]);
+
+    return () => {
+      stopPolling();
+    };
+  }, [experimentId, loadData]);
+
+  useEffect(() => {
+    if (!experiment) return;
+
+    const shouldPoll =
+      experiment.status === "running" || (experiment.status === "completed" && !result);
+
+    if (shouldPoll) {
+      startPolling();
+    } else {
+      stopPolling();
+    }
+
+    return () => {
+      stopPolling();
+    };
+  }, [experiment?.status, result]);
+
+  async function handleRetry() {
+    if (!experiment) return;
+    setRetrying(true);
+    setError(null);
+
+    try {
+      await runExperiment(experiment.id);
+      // Reload data to get updated status
+      await loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to retry experiment");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   if (loading && !experiment) {
     return (
@@ -62,7 +128,7 @@ export default function ExperimentPage() {
     );
   }
 
-  if (error) {
+  if (error && !experiment) {
     return (
       <div>
         <h1>Experiment Results</h1>
@@ -111,26 +177,57 @@ export default function ExperimentPage() {
             <p>The experiment run failed. Please check the backend logs for details.</p>
           )}
         </div>
-        <button
-          onClick={loadData}
-          style={{
-            marginTop: "1rem",
-            padding: "0.5rem 1rem",
-            backgroundColor: "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            cursor: "pointer",
-          }}
-        >
-          Refresh
-        </button>
+        {error && (
+          <div
+            style={{
+              padding: "0.75rem",
+              backgroundColor: "#fff3cd",
+              color: "#856404",
+              borderRadius: "4px",
+              marginTop: "1rem",
+            }}
+          >
+            {error}
+          </div>
+        )}
+        <div style={{ marginTop: "1rem", display: "flex", gap: "0.5rem" }}>
+          <button
+            onClick={handleRetry}
+            disabled={retrying}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: retrying ? "#ccc" : "#28a745",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: retrying ? "not-allowed" : "pointer",
+              fontWeight: "bold",
+            }}
+          >
+            {retrying ? "Retrying..." : "Retry Run"}
+          </button>
+          <button
+            onClick={() => loadData()}
+            disabled={loading}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: loading ? "#ccc" : "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Refreshing..." : "Refresh"}
+          </button>
+        </div>
       </div>
     );
   }
 
   // Handle running status or no results yet
   if (experiment.status === "running" || !result) {
+    const isPolling = pollingIntervalRef.current !== null;
     return (
       <div>
         <h1>Experiment Results</h1>
@@ -141,13 +238,32 @@ export default function ExperimentPage() {
             color: "#666",
           }}
         >
-          <p style={{ fontSize: "1.25rem", marginBottom: "1rem" }}>
-            {experiment.status === "running" ? "Experiment is running..." : "No results available yet."}
-          </p>
+          <div style={{ marginBottom: "1rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem" }}>
+            <div
+              style={{
+                width: "20px",
+                height: "20px",
+                border: "3px solid #f3f3f3",
+                borderTop: "3px solid #0070f3",
+                borderRadius: "50%",
+                animation: "spin 1s linear infinite",
+              }}
+            />
+            <p style={{ fontSize: "1.25rem", margin: 0 }}>
+              {experiment.status === "running" ? "Experiment is running..." : "No results available yet."}
+            </p>
+          </div>
+          {lastUpdated && (
+            <p style={{ fontSize: "0.875rem", color: "#999", marginTop: "0.5rem" }}>
+              Last updated: {lastUpdated.toLocaleTimeString()}
+              {isPolling && " (auto-updating)"}
+            </p>
+          )}
           <button
-            onClick={loadData}
+            onClick={() => loadData()}
             disabled={loading}
             style={{
+              marginTop: "1rem",
               padding: "0.75rem 1.5rem",
               backgroundColor: loading ? "#ccc" : "#0070f3",
               color: "white",
@@ -158,7 +274,7 @@ export default function ExperimentPage() {
               cursor: loading ? "not-allowed" : "pointer",
             }}
           >
-            {loading ? "Refreshing..." : "Refresh"}
+            {loading ? "Refreshing..." : "Refresh Now"}
           </button>
         </div>
       </div>

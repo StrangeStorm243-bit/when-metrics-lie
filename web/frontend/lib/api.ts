@@ -80,6 +80,16 @@ export interface ExperimentCreateRequest {
 }
 
 /**
+ * Custom error class with status code.
+ */
+export class ApiError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+/**
  * Fetch wrapper that throws on non-2xx with parsed JSON error if present.
  */
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
@@ -102,7 +112,7 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
     } catch {
       // Ignore JSON parse errors, use status text
     }
-    throw new Error(errorMessage);
+    throw new ApiError(errorMessage, response.status);
   }
 
   return response.json();
