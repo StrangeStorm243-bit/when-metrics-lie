@@ -1,14 +1,226 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import {
+  createExperiment,
+  runExperiment,
+  getMetricPresets,
+  getStressSuitePresets,
+  type MetricPreset,
+  type StressSuitePreset,
+} from "@/lib/api";
+
 export default function NewExperimentPage() {
+  const router = useRouter();
+  const [name, setName] = useState("");
+  const [metricId, setMetricId] = useState("");
+  const [stressSuiteId, setStressSuiteId] = useState("");
+  const [notes, setNotes] = useState("");
+  const [metrics, setMetrics] = useState<MetricPreset[]>([]);
+  const [stressSuites, setStressSuites] = useState<StressSuitePreset[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingPresets, setLoadingPresets] = useState(true);
+
+  useEffect(() => {
+    async function loadPresets() {
+      try {
+        const [metricsData, suitesData] = await Promise.all([
+          getMetricPresets(),
+          getStressSuitePresets(),
+        ]);
+        setMetrics(metricsData);
+        setStressSuites(suitesData);
+        if (metricsData.length > 0) {
+          setMetricId(metricsData[0].id);
+        }
+        if (suitesData.length > 0) {
+          setStressSuiteId(suitesData[0].id);
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to load presets");
+      } finally {
+        setLoadingPresets(false);
+      }
+    }
+    loadPresets();
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+
+    try {
+      // Create experiment
+      const experiment = await createExperiment({
+        name,
+        metric_id: metricId,
+        stress_suite_id: stressSuiteId,
+        notes: notes || undefined,
+      });
+
+      // Run experiment
+      await runExperiment(experiment.id);
+
+      // Redirect to results page
+      router.push(`/experiments/${experiment.id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create or run experiment");
+      setLoading(false);
+    }
+  }
+
+  if (loadingPresets) {
+    return (
+      <div>
+        <h1>New Experiment</h1>
+        <p>Loading presets...</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1>New Experiment</h1>
-      <div style={{ marginTop: "2rem", padding: "2rem", border: "1px dashed #ccc", borderRadius: "4px" }}>
-        <p style={{ color: "#666" }}>Experiment creation wizard (coming soon)</p>
-        <p style={{ fontSize: "0.875rem", color: "#999", marginTop: "1rem" }}>
-          This page will allow you to configure and create new experiments.
-        </p>
-      </div>
+      {error && (
+        <div
+          style={{
+            padding: "1rem",
+            backgroundColor: "#fee",
+            color: "#c00",
+            borderRadius: "4px",
+            marginBottom: "1rem",
+          }}
+        >
+          Error: {error}
+        </div>
+      )}
+      <form onSubmit={handleSubmit} style={{ maxWidth: "600px", marginTop: "2rem" }}>
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            htmlFor="name"
+            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
+          >
+            Experiment Name *
+          </label>
+          <input
+            id="name"
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "1rem",
+            }}
+          />
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            htmlFor="metric"
+            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
+          >
+            Metric *
+          </label>
+          <select
+            id="metric"
+            value={metricId}
+            onChange={(e) => setMetricId(e.target.value)}
+            required
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "1rem",
+            }}
+          >
+            {metrics.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.name} - {m.description}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            htmlFor="stressSuite"
+            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
+          >
+            Stress Suite *
+          </label>
+          <select
+            id="stressSuite"
+            value={stressSuiteId}
+            onChange={(e) => setStressSuiteId(e.target.value)}
+            required
+            disabled={loading}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "1rem",
+            }}
+          >
+            {stressSuites.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name} - {s.description}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label
+            htmlFor="notes"
+            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
+          >
+            Notes (optional)
+          </label>
+          <textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={loading}
+            rows={4}
+            style={{
+              width: "100%",
+              padding: "0.5rem",
+              border: "1px solid #ccc",
+              borderRadius: "4px",
+              fontSize: "1rem",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+
+        <button
+          type="submit"
+          disabled={loading || !name || !metricId || !stressSuiteId}
+          style={{
+            padding: "0.75rem 1.5rem",
+            backgroundColor: loading ? "#ccc" : "#0070f3",
+            color: "white",
+            border: "none",
+            borderRadius: "4px",
+            fontSize: "1rem",
+            fontWeight: "bold",
+            cursor: loading ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "Creating & Running..." : "Create & Run"}
+        </button>
+      </form>
     </div>
   );
 }
-

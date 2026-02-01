@@ -43,6 +43,7 @@ async def create_experiment(create_req: ExperimentCreateRequest) -> ExperimentSu
         status="created",
         created_at=now,
         last_run_at=None,
+        error_message=None,
     )
 
     # Persist
@@ -55,6 +56,19 @@ async def create_experiment(create_req: ExperimentCreateRequest) -> ExperimentSu
 async def list_experiments_endpoint() -> list[ExperimentSummary]:
     """List all experiments."""
     return list_experiments()
+
+
+@router.get("/{experiment_id}", response_model=ExperimentSummary)
+async def get_experiment(experiment_id: str) -> ExperimentSummary:
+    """Get a specific experiment by ID."""
+    try:
+        _, summary = load_experiment(experiment_id)
+        return summary
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment {experiment_id} not found",
+        )
 
 
 @router.post("/{experiment_id}/run", response_model=RunResponse)
@@ -91,12 +105,14 @@ async def run_experiment_endpoint(experiment_id: str, run_req: RunRequest) -> Ru
         return RunResponse(run_id=run_id, status="completed")
 
     except Exception as e:
-        # Update status to failed
+        # Update status to failed with error message
+        error_msg = str(e)
         summary.status = "failed"
+        summary.error_message = error_msg
         save_experiment(experiment_id, create_req, summary)
 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Experiment run failed: {str(e)}",
+            detail=f"Experiment run failed: {error_msg}",
         )
 

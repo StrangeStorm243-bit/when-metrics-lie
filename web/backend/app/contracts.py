@@ -27,6 +27,7 @@ class ExperimentSummary(BaseModel):
     status: Literal["created", "running", "completed", "failed"] = Field(..., description="Current status")
     created_at: datetime = Field(..., description="Creation timestamp")
     last_run_at: Optional[datetime] = Field(None, description="Timestamp of last run")
+    error_message: Optional[str] = Field(None, description="Error message if status is failed")
 
 
 class RunRequest(BaseModel):

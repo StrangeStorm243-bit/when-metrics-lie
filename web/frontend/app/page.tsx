@@ -69,8 +69,8 @@ export default async function HomePage() {
         <div style={{ display: "grid", gap: "1rem" }}>
           {experiments.map((exp) => (
             <Link
-              key={exp.experiment_id}
-              href={`/experiments/${exp.experiment_id}`}
+              key={exp.id}
+              href={`/experiments/${exp.id}`}
               style={{
                 display: "block",
                 padding: "1rem",

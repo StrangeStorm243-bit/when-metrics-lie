@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import experiments, results
+from .routers import experiments, presets, results
 
 app = FastAPI(
     title="Spectra API",
@@ -24,6 +24,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(experiments.router)
+app.include_router(presets.router)
 app.include_router(results.router)
 
 
@@ -31,4 +32,3 @@ app.include_router(results.router)
 async def health():
     """Health check endpoint."""
     return {"status": "ok"}
-

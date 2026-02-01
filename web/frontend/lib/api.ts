@@ -6,13 +6,26 @@ const API_BASE = process.env.NEXT_PUBLIC_SPECTRA_API_BASE || "http://127.0.0.1:8
 
 // TypeScript types matching backend contracts
 export interface ExperimentSummary {
-  experiment_id: string;
+  id: string;
   name: string;
   metric_id: string;
   stress_suite_id: string;
   status: "created" | "running" | "completed" | "failed";
   created_at: string;
   last_run_at: string | null;
+  error_message?: string | null;
+}
+
+export interface MetricPreset {
+  id: string;
+  name: string;
+  description: string;
+}
+
+export interface StressSuitePreset {
+  id: string;
+  name: string;
+  description: string;
 }
 
 export interface RunRequest {
@@ -132,5 +145,26 @@ export async function runExperiment(
  */
 export async function getResults(experimentId: string): Promise<ResultSummary> {
   return apiFetch<ResultSummary>(`/experiments/${experimentId}/results`);
+}
+
+/**
+ * Get a specific experiment by ID.
+ */
+export async function getExperiment(experimentId: string): Promise<ExperimentSummary> {
+  return apiFetch<ExperimentSummary>(`/experiments/${experimentId}`);
+}
+
+/**
+ * Get available metric presets.
+ */
+export async function getMetricPresets(): Promise<MetricPreset[]> {
+  return apiFetch<MetricPreset[]>("/presets/metrics");
+}
+
+/**
+ * Get available stress suite presets.
+ */
+export async function getStressSuitePresets(): Promise<StressSuitePreset[]> {
+  return apiFetch<StressSuitePreset[]>("/presets/stress-suites");
 }
 
