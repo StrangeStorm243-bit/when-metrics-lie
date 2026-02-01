@@ -178,3 +178,25 @@ export async function getStressSuitePresets(): Promise<StressSuitePreset[]> {
   return apiFetch<StressSuitePreset[]>("/presets/stress-suites");
 }
 
+/**
+ * Run summary for listing runs.
+ */
+export interface RunSummary {
+  run_id: string;
+  generated_at: string | null;
+}
+
+/**
+ * List all runs for an experiment.
+ */
+export async function listRuns(experimentId: string): Promise<RunSummary[]> {
+  return apiFetch<RunSummary[]>(`/experiments/${experimentId}/runs`);
+}
+
+/**
+ * Get results for a specific run.
+ */
+export async function getRunResult(experimentId: string, runId: string): Promise<ResultSummary> {
+  return apiFetch<ResultSummary>(`/experiments/${experimentId}/runs/${runId}/results`);
+}
+

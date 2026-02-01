@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 
-from ..contracts import ExperimentCreateRequest, ExperimentSummary, RunRequest, RunResponse
+from ..contracts import ExperimentCreateRequest, ExperimentSummary, ResultSummary, RunRequest, RunResponse
 from ..engine_bridge import run_experiment
-from ..persistence import load_experiment, list_experiments, save_experiment, save_result
+from ..persistence import load_experiment, load_result_for_run, list_experiments, list_runs, save_experiment, save_result
 from ..storage import METRIC_PRESETS, STRESS_SUITE_PRESETS
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -122,5 +122,46 @@ async def run_experiment_endpoint(experiment_id: str, run_req: RunRequest) -> Ru
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Experiment run failed: {error_msg}",
+        )
+
+
+@router.get("/{experiment_id}/runs")
+async def list_runs_endpoint(experiment_id: str) -> list[dict]:
+    """List all runs for an experiment."""
+    # Verify experiment exists
+    try:
+        load_experiment(experiment_id)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment {experiment_id} not found",
+        )
+    
+    return list_runs(experiment_id)
+
+
+@router.get("/{experiment_id}/runs/{run_id}/results", response_model=ResultSummary)
+async def get_run_results(experiment_id: str, run_id: str) -> ResultSummary:
+    """Get results for a specific run."""
+    # Verify experiment exists
+    try:
+        load_experiment(experiment_id)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment {experiment_id} not found",
+        )
+    
+    try:
+        return load_result_for_run(experiment_id, run_id)
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
         )
 

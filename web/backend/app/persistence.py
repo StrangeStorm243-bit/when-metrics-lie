@@ -114,3 +114,71 @@ def load_latest_result(experiment_id: str) -> Optional[ResultSummary]:
 
     return None
 
+
+def list_runs(experiment_id: str) -> list[dict]:
+    """List all runs for an experiment."""
+    exp_dir = get_experiment_dir(experiment_id)
+    runs_dir = exp_dir / "runs"
+
+    if not runs_dir.exists():
+        return []
+
+    runs = []
+    for run_dir in runs_dir.iterdir():
+        if not run_dir.is_dir():
+            continue
+
+        run_id = run_dir.name
+        result_file = run_dir / "result.json"
+
+        if not result_file.exists():
+            continue
+
+        try:
+            data = json.loads(result_file.read_text(encoding="utf-8"))
+            result = ResultSummary.model_validate(data)
+            runs.append({
+                "run_id": run_id,
+                "generated_at": result.generated_at.isoformat() if result.generated_at else None,
+            })
+        except Exception:
+            # Skip corrupted results
+            continue
+
+    # Sort by generated_at descending (most recent first), then by run_id
+    # Put None values at the end
+    runs_with_dates = [r for r in runs if r["generated_at"] is not None]
+    runs_without_dates = [r for r in runs if r["generated_at"] is None]
+    
+    # Sort runs with dates: descending by generated_at, then by run_id
+    runs_with_dates.sort(key=lambda r: (r["generated_at"], r["run_id"]), reverse=True)
+    
+    # Sort runs without dates: by run_id
+    runs_without_dates.sort(key=lambda r: r["run_id"])
+    
+    # Combine: dates first (descending), then None values
+    runs[:] = runs_with_dates + runs_without_dates
+
+    return runs
+
+
+def load_result_for_run(experiment_id: str, run_id: str) -> ResultSummary:
+    """Load result for a specific run."""
+    exp_dir = get_experiment_dir(experiment_id)
+    runs_dir = exp_dir / "runs"
+
+    if not runs_dir.exists():
+        raise FileNotFoundError(f"Experiment {experiment_id} has no runs")
+
+    run_dir = runs_dir / run_id
+    result_file = run_dir / "result.json"
+
+    if not result_file.exists():
+        raise FileNotFoundError(f"Run {run_id} not found for experiment {experiment_id}")
+
+    try:
+        data = json.loads(result_file.read_text(encoding="utf-8"))
+        return ResultSummary.model_validate(data)
+    except Exception as e:
+        raise ValueError(f"Failed to load result for run {run_id}: {e}") from e
+
