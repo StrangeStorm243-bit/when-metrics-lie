@@ -24,3 +24,54 @@ a {
   }
 }
 
+@media print {
+  /* Hide navigation, headers, and buttons */
+  nav,
+  header,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Ensure black-on-white content */
+  body {
+    background: white !important;
+    color: black !important;
+  }
+
+  /* Remove colored backgrounds but keep structure */
+  div[style*="background-color: #"] {
+    background-color: white !important;
+  }
+
+  /* Ensure text is black for readability */
+  p,
+  span,
+  div,
+  li {
+    color: black !important;
+  }
+
+  /* Keep borders for readability but make them black */
+  div[style*="border"] {
+    border-color: #000 !important;
+  }
+
+  /* Ensure headings are readable */
+  h1,
+  h2,
+  h3 {
+    color: black !important;
+    page-break-after: avoid;
+  }
+
+  /* Avoid page breaks inside sections */
+  div[style*="padding"] {
+    page-break-inside: avoid;
+  }
+
+  /* Hide spinner elements */
+  div[style*="animation: spin"] {
+    display: none !important;
+  }
+}
+
