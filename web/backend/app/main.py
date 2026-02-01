@@ -2,6 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .routers import experiments, results
+
 app = FastAPI(
     title="Spectra API",
     description="Web API for Spectra evaluation engine",
@@ -19,6 +21,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers
+app.include_router(experiments.router)
+app.include_router(results.router)
 
 
 @app.get("/health")
