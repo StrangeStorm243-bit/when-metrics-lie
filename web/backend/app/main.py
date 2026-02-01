@@ -2,7 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routers import experiments, presets, results
+from .routers import experiments, llm, presets, results
 
 app = FastAPI(
     title="Spectra API",
@@ -26,6 +26,7 @@ app.add_middleware(
 app.include_router(experiments.router)
 app.include_router(presets.router)
 app.include_router(results.router)
+app.include_router(llm.router)
 
 
 @app.get("/health")

@@ -5,11 +5,22 @@ import {
   listExperiments,
   listRuns,
   getRunResult,
+  compareExplain,
+  ApiError,
   type ExperimentSummary,
   type RunSummary,
   type ResultSummary,
+  type CompareExplainRequest,
 } from "@/lib/api";
-import { buildScenarioDiff, buildComponentDiff, buildFlagDiff } from "@/lib/compare_model";
+import {
+  buildScenarioDiff,
+  buildComponentDiff,
+  buildFlagDiff,
+  getWorstCaseScenario,
+  getBiggestRegression,
+  getBiggestImprovement,
+  getBiggestComponentChange,
+} from "@/lib/compare_model";
 import { respond, type AnalystIntent, type AnalystMessage } from "@/lib/analyst";
 
 export default function ComparePage() {
@@ -39,6 +50,8 @@ export default function ComparePage() {
   const [pinnedMessages, setPinnedMessages] = useState<Set<string>>(new Set());
   const [focus, setFocus] = useState<{ type: "scenario" | "component" | "flag"; key: string } | null>(null);
   const analystPanelRef = useRef<HTMLDivElement>(null);
+  const [useAI, setUseAI] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
 
   // Load experiments on mount
   useEffect(() => {
@@ -144,7 +157,80 @@ export default function ComparePage() {
     }
   }
 
-  function handlePrompt(intent: AnalystIntent) {
+  // Build compact context bundle for LLM
+  function buildContextBundle() {
+    if (!resultA || !resultB) return null;
+
+    const scenarioDiffs = buildScenarioDiff(resultA, resultB);
+    const componentDiffs = buildComponentDiff(resultA, resultB);
+    const flagDiff = buildFlagDiff(resultA.flags, resultB.flags);
+
+    const expA = experiments.find((e) => e.id === experimentIdA);
+    const expB = experiments.find((e) => e.id === experimentIdB);
+
+    return {
+      experiments: {
+        a: {
+          id: experimentIdA,
+          name: expA?.name || experimentIdA,
+          run_id: runIdA,
+        },
+        b: {
+          id: experimentIdB,
+          name: expB?.name || experimentIdB,
+          run_id: runIdB,
+        },
+      },
+      headline: {
+        score_a: resultA.headline_score,
+        score_b: resultB.headline_score,
+        delta: resultB.headline_score - resultA.headline_score,
+      },
+      worst_case: getWorstCaseScenario(scenarioDiffs)
+        ? {
+            scenario_id: getWorstCaseScenario(scenarioDiffs)!.scenario_id,
+            scenario_name: getWorstCaseScenario(scenarioDiffs)!.scenario_name,
+            delta_a: getWorstCaseScenario(scenarioDiffs)!.deltaA,
+            delta_b: getWorstCaseScenario(scenarioDiffs)!.deltaB,
+          }
+        : null,
+      top_scenario_changes: scenarioDiffs.slice(0, 10).map((d) => ({
+        scenario_id: d.scenario_id,
+        scenario_name: d.scenario_name,
+        delta_a: d.deltaA,
+        delta_b: d.deltaB,
+        change: d.change,
+      })),
+      top_component_changes: componentDiffs.slice(0, 10).map((d) => ({
+        name: d.name,
+        score_a: d.scoreA,
+        score_b: d.scoreB,
+        delta: d.delta,
+      })),
+      flags_summary: {
+        added: flagDiff.added.length,
+        removed: flagDiff.removed.length,
+        persisting: flagDiff.persisting.length,
+        by_severity: {
+          critical: {
+            added: flagDiff.bySeverity.critical.added.length,
+            removed: flagDiff.bySeverity.critical.removed.length,
+          },
+          warn: {
+            added: flagDiff.bySeverity.warn.added.length,
+            removed: flagDiff.bySeverity.warn.removed.length,
+          },
+        },
+        top_added: flagDiff.added.slice(0, 5).map((f) => ({
+          code: f.code,
+          title: f.title,
+          severity: f.severity,
+        })),
+      },
+    };
+  }
+
+  async function handlePrompt(intent: AnalystIntent) {
     if (!resultA || !resultB) return;
 
     const scenarioDiffs = buildScenarioDiff(resultA, resultB);
@@ -157,6 +243,51 @@ export default function ComparePage() {
       body: intent === "overview" ? "Show overview" : intent === "worse" ? "What got worse?" : intent === "improved" ? "What improved?" : intent === "worst_case" ? "Explain worst-case change" : "Explain new flags",
     };
 
+    setAnalystMessages((prev) => [...prev, userMessage]);
+    setAiError(null);
+
+    // Try AI if enabled
+    if (useAI) {
+      const context = buildContextBundle();
+      if (context) {
+        try {
+          const request: CompareExplainRequest = {
+            intent,
+            focus: focus || null,
+            context,
+            user_question: userMessage.body,
+          };
+
+          const aiResponse = await compareExplain(request);
+
+          const aiMessage: AnalystMessage = {
+            id: `ai-${Date.now()}`,
+            role: "assistant",
+            title: `AI Analyst: ${aiResponse.title}`,
+            body: aiResponse.body_markdown,
+            evidence: aiResponse.evidence_keys.length > 0 ? `Evidence: ${aiResponse.evidence_keys.join(", ")}` : undefined,
+          };
+
+          setAnalystMessages((prev) => [...prev, aiMessage]);
+          setTimeout(() => {
+            analystPanelRef.current?.scrollTo({
+              top: analystPanelRef.current.scrollHeight,
+              behavior: "smooth",
+            });
+          }, 100);
+          return;
+        } catch (e) {
+          // Fallback to deterministic on error (including 501)
+          if (e instanceof ApiError && e.status === 501) {
+            setAiError("AI features require ANTHROPIC_API_KEY. Falling back to deterministic analyst.");
+          } else {
+            setAiError(`AI request failed: ${e instanceof Error ? e.message : "Unknown error"}. Falling back to deterministic analyst.`);
+          }
+        }
+      }
+    }
+
+    // Deterministic fallback (default or on error)
     const responses = respond(intent, {
       resultA,
       resultB,
@@ -166,7 +297,7 @@ export default function ComparePage() {
       focus: focus || undefined,
     });
 
-    setAnalystMessages((prev) => [...prev, userMessage, ...responses]);
+    setAnalystMessages((prev) => [...prev, ...responses]);
 
     // Scroll to bottom
     setTimeout(() => {
@@ -189,7 +320,7 @@ export default function ComparePage() {
     });
   }
 
-  function handleFocus(type: "scenario" | "component" | "flag", key: string) {
+  async function handleFocus(type: "scenario" | "component" | "flag", key: string) {
     setFocus({ type, key });
 
     if (!resultA || !resultB) return;
@@ -199,6 +330,49 @@ export default function ComparePage() {
     const flagDiff = buildFlagDiff(resultA.flags, resultB.flags);
 
     const intent: AnalystIntent = type === "scenario" ? "scenario_focus" : type === "component" ? "component_focus" : "flag_focus";
+    setAiError(null);
+
+    // Try AI if enabled
+    if (useAI) {
+      const context = buildContextBundle();
+      if (context) {
+        try {
+          const request: CompareExplainRequest = {
+            intent,
+            focus: { type, key },
+            context,
+          };
+
+          const aiResponse = await compareExplain(request);
+
+          const aiMessage: AnalystMessage = {
+            id: `ai-${Date.now()}`,
+            role: "assistant",
+            title: `AI Analyst: ${aiResponse.title}`,
+            body: aiResponse.body_markdown,
+            evidence: aiResponse.evidence_keys.length > 0 ? `Evidence: ${aiResponse.evidence_keys.join(", ")}` : undefined,
+          };
+
+          setAnalystMessages((prev) => [...prev, aiMessage]);
+          setTimeout(() => {
+            analystPanelRef.current?.scrollTo({
+              top: analystPanelRef.current.scrollHeight,
+              behavior: "smooth",
+            });
+          }, 100);
+          return;
+        } catch (e) {
+          // Fallback to deterministic on error (including 501)
+          if (e instanceof ApiError && e.status === 501) {
+            setAiError("AI features require ANTHROPIC_API_KEY. Falling back to deterministic analyst.");
+          } else {
+            setAiError(`AI request failed: ${e instanceof Error ? e.message : "Unknown error"}. Falling back to deterministic analyst.`);
+          }
+        }
+      }
+    }
+
+    // Deterministic fallback (default or on error)
     const responses = respond(intent, {
       resultA,
       resultB,
@@ -463,7 +637,34 @@ export default function ComparePage() {
               backgroundColor: "white",
             }}
           >
-            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Analyst Assistant</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <h2 style={{ marginTop: 0, marginBottom: 0 }}>Analyst Assistant</h2>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={useAI}
+                  onChange={(e) => setUseAI(e.target.checked)}
+                  style={{ cursor: "pointer" }}
+                />
+                <span style={{ fontSize: "0.875rem" }}>Enhanced Analyst (AI)</span>
+              </label>
+            </div>
+
+            {aiError && (
+              <div
+                style={{
+                  padding: "0.75rem",
+                  backgroundColor: "#fff3cd",
+                  border: "1px solid #ffc107",
+                  borderRadius: "4px",
+                  marginBottom: "1rem",
+                  fontSize: "0.875rem",
+                  color: "#856404",
+                }}
+              >
+                {aiError}
+              </div>
+            )}
 
             {/* Prompt Chips */}
             <div style={{ marginBottom: "1rem", display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>

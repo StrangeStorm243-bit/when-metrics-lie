@@ -200,3 +200,32 @@ export async function getRunResult(experimentId: string, runId: string): Promise
   return apiFetch<ResultSummary>(`/experiments/${experimentId}/runs/${runId}/results`);
 }
 
+/**
+ * LLM explanation request.
+ */
+export interface CompareExplainRequest {
+  intent: string;
+  focus?: { type: "scenario" | "component" | "flag"; key: string } | null;
+  context: Record<string, unknown>;
+  user_question?: string | null;
+}
+
+/**
+ * LLM explanation response.
+ */
+export interface CompareExplainResponse {
+  title: string;
+  body_markdown: string;
+  evidence_keys: string[];
+}
+
+/**
+ * Get LLM explanation for a comparison.
+ */
+export async function compareExplain(request: CompareExplainRequest): Promise<CompareExplainResponse> {
+  return apiFetch<CompareExplainResponse>("/llm/compare-explain", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
