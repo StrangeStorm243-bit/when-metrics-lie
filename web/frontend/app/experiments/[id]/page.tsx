@@ -10,6 +10,7 @@ import {
   type ExperimentSummary,
   type ResultSummary,
 } from "@/lib/api";
+import { deriveFindings, getSeverityFromDelta } from "@/lib/insights";
 
 export default function ExperimentPage() {
   const router = useRouter();
@@ -116,6 +117,46 @@ export default function ExperimentPage() {
       setError(e instanceof Error ? e.message : "Failed to retry experiment");
     } finally {
       setRetrying(false);
+    }
+  }
+
+  function handleExportJSON() {
+    if (!result) return;
+    const jsonStr = JSON.stringify(result, null, 2);
+    const blob = new Blob([jsonStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `spectra_${result.experiment_id}_${result.run_id}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function getStatusColor(status: string): string {
+    switch (status) {
+      case "completed":
+        return "#28a745";
+      case "running":
+        return "#ffc107";
+      case "failed":
+        return "#dc3545";
+      default:
+        return "#6c757d";
+    }
+  }
+
+  function getStatusBgColor(status: string): string {
+    switch (status) {
+      case "completed":
+        return "#d4edda";
+      case "running":
+        return "#fff3cd";
+      case "failed":
+        return "#f8d7da";
+      default:
+        return "#e2e3e5";
     }
   }
 
@@ -282,9 +323,87 @@ export default function ExperimentPage() {
   }
 
   // Show results
+  const findings = deriveFindings(result);
+  const sortedScenarios = [...result.scenario_results].sort((a, b) => a.delta - b.delta);
+  const maxComponentScore = Math.max(
+    ...result.component_scores.map((c) => c.score),
+    1
+  );
+  const flagsBySeverity = {
+    critical: result.flags.filter((f) => f.severity === "critical"),
+    warn: result.flags.filter((f) => f.severity === "warn"),
+    info: result.flags.filter((f) => f.severity === "info"),
+  };
+
   return (
     <div>
-      <h1>Experiment Results</h1>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: "2rem",
+          flexWrap: "wrap",
+          gap: "1rem",
+        }}
+      >
+        <div>
+          <h1 style={{ marginBottom: "0.5rem" }}>{experiment.name}</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <span
+              style={{
+                padding: "0.25rem 0.75rem",
+                borderRadius: "12px",
+                fontSize: "0.875rem",
+                fontWeight: "bold",
+                backgroundColor: getStatusBgColor(experiment.status),
+                color: getStatusColor(experiment.status),
+                textTransform: "uppercase",
+              }}
+            >
+              {experiment.status}
+            </span>
+            {lastUpdated && (
+              <span style={{ fontSize: "0.875rem", color: "#666" }}>
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </span>
+            )}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
+          <button
+            onClick={() => loadData()}
+            disabled={loading}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: loading ? "#ccc" : "#0070f3",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: loading ? "not-allowed" : "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            {loading ? "Refreshing..." : "Refresh Now"}
+          </button>
+          <button
+            onClick={handleExportJSON}
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#6c757d",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              cursor: "pointer",
+              fontSize: "0.875rem",
+            }}
+          >
+            Export JSON
+          </button>
+        </div>
+      </div>
+
       {resultsError && (
         <div
           style={{
@@ -292,106 +411,288 @@ export default function ExperimentPage() {
             backgroundColor: "#fff3cd",
             color: "#856404",
             borderRadius: "4px",
-            marginTop: "1rem",
+            marginBottom: "1rem",
           }}
         >
           Warning: {resultsError}
         </div>
       )}
-      <div style={{ marginTop: "2rem" }}>
-        <div style={{ marginBottom: "2rem" }}>
-          <h2>Headline Score</h2>
-          <div style={{ fontSize: "2rem", fontWeight: "bold", marginTop: "0.5rem" }}>
-            {result.headline_score.toFixed(6)}
+
+      <div style={{ display: "grid", gap: "1.5rem" }}>
+        {/* Key Findings */}
+        {findings.length > 0 && (
+          <div
+            style={{
+              padding: "1.5rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              backgroundColor: "#f8f9fa",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Key Findings</h2>
+            <ul style={{ margin: 0, paddingLeft: "1.5rem" }}>
+              {findings.map((finding, idx) => (
+                <li key={idx} style={{ marginBottom: "0.5rem", lineHeight: "1.5" }}>
+                  {finding.text}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Headline Score */}
+        <div
+          style={{
+            padding: "1.5rem",
+            border: "1px solid #e0e0e0",
+            borderRadius: "8px",
+            backgroundColor: "white",
+          }}
+        >
+          <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Headline Score</h2>
+          <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0070f3" }}>
+            {result.headline_score.toFixed(4)}
           </div>
           {result.weighted_score !== null && (
-            <div style={{ fontSize: "1rem", color: "#666", marginTop: "0.25rem" }}>
-              Weighted: {result.weighted_score.toFixed(6)}
+            <div style={{ fontSize: "1rem", color: "#666", marginTop: "0.5rem" }}>
+              Weighted: {result.weighted_score.toFixed(4)}
             </div>
           )}
         </div>
 
-        {result.component_scores.length > 0 && (
-          <div style={{ marginBottom: "2rem" }}>
-            <h2>Component Scores ({result.component_scores.length})</h2>
-            <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
-              {result.component_scores.map((comp, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: "0.75rem",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "4px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                  }}
-                >
-                  <span>{comp.name}</span>
-                  <span style={{ fontWeight: "bold" }}>{comp.score.toFixed(6)}</span>
-                </div>
-              ))}
+        {/* Component Scores */}
+        <div
+          style={{
+            padding: "1.5rem",
+            border: "1px solid #e0e0e0",
+            borderRadius: "8px",
+            backgroundColor: "white",
+          }}
+        >
+          <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>
+            Component Scores ({result.component_scores.length})
+          </h2>
+          {result.component_scores.length === 0 ? (
+            <p style={{ color: "#666", margin: 0 }}>No component-level diagnostics available for this run.</p>
+          ) : (
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {result.component_scores.map((comp, idx) => {
+                const barWidth = Math.max(0, Math.min(100, (comp.score / maxComponentScore) * 100));
+                return (
+                  <div key={idx}>
+                    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+                      <span style={{ fontWeight: "500" }}>{comp.name}</span>
+                      <span style={{ fontWeight: "bold" }}>{comp.score.toFixed(4)}</span>
+                    </div>
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "24px",
+                        backgroundColor: "#e9ecef",
+                        borderRadius: "4px",
+                        overflow: "hidden",
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: `${barWidth}%`,
+                          height: "100%",
+                          backgroundColor: comp.score >= 0.7 ? "#28a745" : comp.score >= 0.5 ? "#ffc107" : "#dc3545",
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Scenario Results */}
+        {sortedScenarios.length > 0 && (
+          <div
+            style={{
+              padding: "1.5rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              backgroundColor: "white",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>
+              Scenario Stress Results ({sortedScenarios.length})
+            </h2>
+            <div style={{ display: "grid", gap: "0.75rem" }}>
+              {sortedScenarios.map((scenario, idx) => {
+                const severity = getSeverityFromDelta(scenario.delta);
+                const severityColors = {
+                  high: { bg: "#f8d7da", text: "#721c24", border: "#f5c6cb" },
+                  med: { bg: "#fff3cd", text: "#856404", border: "#ffeaa7" },
+                  low: { bg: "#d1ecf1", text: "#0c5460", border: "#bee5eb" },
+                };
+                const colors = severityColors[severity];
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: "1rem",
+                      border: `1px solid ${colors.border}`,
+                      borderRadius: "6px",
+                      backgroundColor: colors.bg,
+                    }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                      <div>
+                        <div style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>{scenario.scenario_name}</div>
+                        <div style={{ fontSize: "0.875rem", color: colors.text }}>
+                          Score: {scenario.score.toFixed(4)}
+                        </div>
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span
+                          style={{
+                            padding: "0.25rem 0.5rem",
+                            borderRadius: "4px",
+                            fontSize: "0.75rem",
+                            fontWeight: "bold",
+                            backgroundColor: colors.text,
+                            color: colors.bg,
+                            textTransform: "uppercase",
+                            marginBottom: "0.25rem",
+                            display: "inline-block",
+                          }}
+                        >
+                          {severity}
+                        </span>
+                        <div
+                          style={{
+                            fontSize: "1.25rem",
+                            fontWeight: "bold",
+                            color: colors.text,
+                          }}
+                        >
+                          {scenario.delta > 0 ? "+" : ""}
+                          {scenario.delta.toFixed(4)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
 
-        {result.scenario_results.length > 0 && (
-          <div style={{ marginBottom: "2rem" }}>
-            <h2>Scenario Results ({result.scenario_results.length})</h2>
-            <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
-              {result.scenario_results.map((scenario, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: "0.75rem",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "4px",
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.25rem" }}>
-                    <span style={{ fontWeight: "bold" }}>{scenario.scenario_name}</span>
-                    <span>Score: {scenario.score.toFixed(6)}</span>
-                  </div>
-                  <div style={{ fontSize: "0.875rem", color: "#666" }}>
-                    Delta: {scenario.delta > 0 ? "+" : ""}{scenario.delta.toFixed(6)}
+        {/* Flags by Severity */}
+        {(flagsBySeverity.critical.length > 0 ||
+          flagsBySeverity.warn.length > 0 ||
+          flagsBySeverity.info.length > 0) && (
+          <div
+            style={{
+              padding: "1.5rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              backgroundColor: "white",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Flags ({result.flags.length})</h2>
+            <div style={{ display: "grid", gap: "1rem" }}>
+              {/* Critical Flags */}
+              {flagsBySeverity.critical.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem", color: "#721c24" }}>
+                    Critical ({flagsBySeverity.critical.length})
+                  </h3>
+                  <div style={{ display: "grid", gap: "0.5rem" }}>
+                    {flagsBySeverity.critical.map((flag, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: "0.75rem",
+                          border: "1px solid #f5c6cb",
+                          borderRadius: "4px",
+                          backgroundColor: "#f8d7da",
+                        }}
+                      >
+                        <div style={{ fontWeight: "bold", marginBottom: "0.25rem", color: "#721c24" }}>
+                          {flag.title}
+                        </div>
+                        <div style={{ fontSize: "0.875rem", color: "#721c24" }}>{flag.detail}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#856404", marginTop: "0.25rem" }}>
+                          [{flag.code}]
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              ))}
+              )}
+
+              {/* Warn Flags */}
+              {flagsBySeverity.warn.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem", color: "#856404" }}>
+                    Warnings ({flagsBySeverity.warn.length})
+                  </h3>
+                  <div style={{ display: "grid", gap: "0.5rem" }}>
+                    {flagsBySeverity.warn.map((flag, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: "0.75rem",
+                          border: "1px solid #ffeaa7",
+                          borderRadius: "4px",
+                          backgroundColor: "#fff3cd",
+                        }}
+                      >
+                        <div style={{ fontWeight: "bold", marginBottom: "0.25rem", color: "#856404" }}>
+                          {flag.title}
+                        </div>
+                        <div style={{ fontSize: "0.875rem", color: "#856404" }}>{flag.detail}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#856404", marginTop: "0.25rem" }}>
+                          [{flag.code}]
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Info Flags */}
+              {flagsBySeverity.info.length > 0 && (
+                <div>
+                  <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem", color: "#0c5460" }}>
+                    Info ({flagsBySeverity.info.length})
+                  </h3>
+                  <div style={{ display: "grid", gap: "0.5rem" }}>
+                    {flagsBySeverity.info.map((flag, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          padding: "0.75rem",
+                          border: "1px solid #bee5eb",
+                          borderRadius: "4px",
+                          backgroundColor: "#d1ecf1",
+                        }}
+                      >
+                        <div style={{ fontWeight: "bold", marginBottom: "0.25rem", color: "#0c5460" }}>
+                          {flag.title}
+                        </div>
+                        <div style={{ fontSize: "0.875rem", color: "#0c5460" }}>{flag.detail}</div>
+                        <div style={{ fontSize: "0.75rem", color: "#0c5460", marginTop: "0.25rem" }}>
+                          [{flag.code}]
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {result.flags.length > 0 && (
-          <div style={{ marginBottom: "2rem" }}>
-            <h2>Flags ({result.flags.length})</h2>
-            <div style={{ marginTop: "1rem", display: "grid", gap: "0.5rem" }}>
-              {result.flags.map((flag, idx) => (
-                <div
-                  key={idx}
-                  style={{
-                    padding: "0.75rem",
-                    border: "1px solid #e0e0e0",
-                    borderRadius: "4px",
-                    backgroundColor:
-                      flag.severity === "critical"
-                        ? "#f8d7da"
-                        : flag.severity === "warn"
-                        ? "#fff3cd"
-                        : "#d1ecf1",
-                  }}
-                >
-                  <div style={{ fontWeight: "bold", marginBottom: "0.25rem" }}>{flag.title}</div>
-                  <div style={{ fontSize: "0.875rem" }}>{flag.detail}</div>
-                  <div style={{ fontSize: "0.75rem", color: "#666", marginTop: "0.25rem" }}>
-                    [{flag.severity}] {flag.code}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div style={{ fontSize: "0.875rem", color: "#666", marginTop: "2rem" }}>
-          Generated: {new Date(result.generated_at).toLocaleString()}
+        {/* Metadata */}
+        <div style={{ fontSize: "0.875rem", color: "#666", textAlign: "center", paddingTop: "1rem" }}>
+          Generated: {new Date(result.generated_at).toLocaleString()} • Run ID: {result.run_id}
         </div>
       </div>
     </div>
