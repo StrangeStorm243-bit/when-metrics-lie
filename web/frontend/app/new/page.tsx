@@ -180,7 +180,7 @@ export default function NewExperimentPage() {
               </Label>
               {datasets.length === 0 ? (
                 <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
-                  No datasets found. Place CSV files under the repo's data/ directory (e.g., data/demo_binary_label_noise.csv).
+                  No datasets found. Place CSV files under the repo&apos;s data/ directory (e.g., data/demo_binary_label_noise.csv).
                 </div>
               ) : (
                 <Select value={datasetPath} onValueChange={setDatasetPath} disabled={loading}>

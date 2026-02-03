@@ -64,19 +64,19 @@ export default function ExperimentPage() {
     }
   }, [experimentId, router]);
 
-  function stopPolling() {
+  const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
-  }
+  }, []);
 
-  function startPolling() {
+  const startPolling = useCallback(() => {
     stopPolling();
     pollingIntervalRef.current = setInterval(() => {
       loadData(true);
     }, 2000);
-  }
+  }, [loadData, stopPolling]);
 
   useEffect(() => {
     if (experimentId) {
@@ -86,7 +86,7 @@ export default function ExperimentPage() {
     return () => {
       stopPolling();
     };
-  }, [experimentId, loadData]);
+  }, [experimentId, loadData, stopPolling]);
 
   useEffect(() => {
     if (!experiment) return;
@@ -103,7 +103,7 @@ export default function ExperimentPage() {
     return () => {
       stopPolling();
     };
-  }, [experiment?.status, result]);
+  }, [experiment, result, startPolling, stopPolling]);
 
   async function handleRetry() {
     if (!experiment) return;

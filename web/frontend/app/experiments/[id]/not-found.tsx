@@ -5,7 +5,7 @@ export default function NotFound() {
     <div style={{ textAlign: "center", padding: "4rem 2rem" }}>
       <h1>Experiment Not Found</h1>
       <p style={{ color: "#666", marginTop: "1rem" }}>
-        The experiment you're looking for doesn't exist or has no results yet.
+        The experiment you&apos;re looking for doesn&apos;t exist or has no results yet.
       </p>
       <Link
         href="/"
