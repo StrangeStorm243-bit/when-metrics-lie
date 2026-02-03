@@ -24,7 +24,13 @@ export default function RootLayout({
               Home
             </Link>
             <Link href="/new" style={{ textDecoration: "none", color: "inherit" }}>
-              New Experiment
+              New
+            </Link>
+            <Link href="/compare" style={{ textDecoration: "none", color: "inherit" }}>
+              Compare
+            </Link>
+            <Link href="/assistant" style={{ textDecoration: "none", color: "inherit" }}>
+              Assistant
             </Link>
           </nav>
         </header>
