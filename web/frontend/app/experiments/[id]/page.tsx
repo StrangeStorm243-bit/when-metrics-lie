@@ -401,6 +401,9 @@ export default function ExperimentPage() {
       >
         <div>
           <h1 style={{ marginBottom: "0.5rem" }}>{experiment.name}</h1>
+          <p className="text-sm text-muted-foreground" style={{ marginBottom: "0.5rem" }}>
+            Spectra evaluates metrics against the same model outputs under stress scenarios — it doesn&apos;t train models.
+          </p>
           <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
             <span
               style={{

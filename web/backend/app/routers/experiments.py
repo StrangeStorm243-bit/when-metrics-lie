@@ -112,6 +112,17 @@ async def run_experiment_endpoint(experiment_id: str, run_req: RunRequest) -> Ru
 
         return RunResponse(run_id=run_id, status="completed")
 
+    except ValueError as e:
+        # Dataset path or CSV reading errors - return 400 with helpful message
+        error_msg = str(e)
+        summary.status = "failed"
+        summary.error_message = error_msg
+        save_experiment(experiment_id, create_req, summary)
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=error_msg,
+        )
     except Exception as e:
         # Update status to failed with error message
         error_msg = str(e)

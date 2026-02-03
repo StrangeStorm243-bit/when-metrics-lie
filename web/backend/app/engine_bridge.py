@@ -82,13 +82,18 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
             dataset_path = (repo_root / config_path).resolve()
         
         searched_locations.append(f"config['dataset_path']: {dataset_path}")
-        if dataset_path.exists() and dataset_path.is_file():
-            return dataset_path
-        else:
+        if not dataset_path.exists():
             raise ValueError(
-                f"Dataset path from config does not exist: {create_req.config['dataset_path']} "
+                f"Dataset file does not exist: {create_req.config['dataset_path']} "
                 f"(resolved to: {dataset_path})"
             )
+        if not dataset_path.is_file():
+            raise ValueError(
+                f"Dataset path is not a file: {create_req.config['dataset_path']} "
+                f"(resolved to: {dataset_path})"
+            )
+        print(f"[DEBUG] Using dataset path: {dataset_path}")
+        return dataset_path
     
     # Try candidate paths in order (ONLY if they exist)
     candidates = [
@@ -245,8 +250,6 @@ def run_experiment(
     """
     # Build ExperimentSpec from create_req
     dataset_dict = _get_default_dataset(create_req)
-    # Debug: print the absolute dataset path being used
-    print(f"[DEBUG] Using dataset path: {dataset_dict['path']}")
     scenarios = _get_default_scenarios(create_req.stress_suite_id)
 
     spec_dict = {

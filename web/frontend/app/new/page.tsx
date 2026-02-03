@@ -8,6 +8,7 @@ import {
   getMetricPresets,
   getStressSuitePresets,
   getDatasetPresets,
+  ApiError,
   type MetricPreset,
   type StressSuitePreset,
   type DatasetPreset,
@@ -89,7 +90,14 @@ export default function NewExperimentPage() {
       // Redirect to results page
       router.push(`/experiments/${experiment.id}`);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to create or run experiment");
+      if (e instanceof ApiError) {
+        // Backend error - show the detail message directly
+        setError(e.message);
+      } else if (e instanceof Error) {
+        setError(e.message);
+      } else {
+        setError("Failed to create or run experiment");
+      }
       setLoading(false);
     }
   }
@@ -97,7 +105,10 @@ export default function NewExperimentPage() {
   if (loadingPresets) {
     return (
       <div className="container max-w-2xl py-8">
-        <h1 className="text-3xl font-bold mb-4">New Experiment</h1>
+        <h1 className="text-3xl font-bold mb-2">New Experiment</h1>
+        <p className="text-sm text-muted-foreground mb-4">
+          Spectra evaluates metrics against the same model outputs under stress scenarios — it doesn&apos;t train models.
+        </p>
         <p className="text-muted-foreground">Loading presets...</p>
       </div>
     );
@@ -105,10 +116,13 @@ export default function NewExperimentPage() {
 
   return (
     <div className="container max-w-2xl py-8">
-      <h1 className="text-3xl font-bold mb-6">New Experiment</h1>
+      <h1 className="text-3xl font-bold mb-2">New Experiment</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Spectra evaluates metrics against the same model outputs under stress scenarios — it doesn&apos;t train models.
+      </p>
       {error && (
         <div className="mb-6 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
-          Error: {error}
+          {error}
         </div>
       )}
       <Card>
@@ -183,18 +197,23 @@ export default function NewExperimentPage() {
                   No datasets found. Place CSV files under the repo&apos;s data/ directory (e.g., data/demo_binary_label_noise.csv).
                 </div>
               ) : (
-                <Select value={datasetPath} onValueChange={setDatasetPath} disabled={loading}>
-                  <SelectTrigger id="dataset">
-                    <SelectValue placeholder="Select a dataset" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {datasets.map((d) => (
-                      <SelectItem key={d.id} value={d.path}>
-                        {d.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <>
+                  <Select value={datasetPath} onValueChange={setDatasetPath} disabled={loading}>
+                    <SelectTrigger id="dataset">
+                      <SelectValue placeholder="Select a dataset" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {datasets.map((d) => (
+                        <SelectItem key={d.id} value={d.path}>
+                          {d.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Tip: use two different datasets to produce different runs for Compare.
+                  </p>
+                </>
               )}
             </div>
 

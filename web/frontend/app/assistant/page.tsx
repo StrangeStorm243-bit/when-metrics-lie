@@ -278,8 +278,11 @@ export default function AssistantPage() {
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 border-b border-border">
           <h1 className="text-2xl font-bold mb-1">Assistant</h1>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground mb-2">
             Ask questions about a specific experiment run and its metric stress results.
+          </p>
+          <p className="text-xs text-muted-foreground">
+            Spectra evaluates metrics against the same model outputs under stress scenarios — it doesn&apos;t train models.
           </p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4 border-b border-border">
@@ -320,7 +323,7 @@ export default function AssistantPage() {
                 className="h-4 w-4 rounded border-input"
               />
               <Label htmlFor="enhanced-analyst" className="text-sm font-normal cursor-pointer">
-                Enhanced Analyst (LLM · optional)
+                Enhanced Analyst (LLM · coming soon)
               </Label>
             </div>
             <p className="text-xs text-muted-foreground ml-6">
