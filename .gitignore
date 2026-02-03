@@ -38,3 +38,7 @@ runs/
 # Spectra local UI artifacts
 .spectra_ui/
 .spectra_registry/
+
+.next/
+node_modules/
+.env.local
