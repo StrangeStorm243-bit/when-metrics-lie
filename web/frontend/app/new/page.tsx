@@ -12,6 +12,18 @@ import {
   type StressSuitePreset,
   type DatasetPreset,
 } from "@/lib/api";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function NewExperimentPage() {
   const router = useRouter();
@@ -84,196 +96,130 @@ export default function NewExperimentPage() {
 
   if (loadingPresets) {
     return (
-      <div>
-        <h1>New Experiment</h1>
-        <p>Loading presets...</p>
+      <div className="container max-w-2xl py-8">
+        <h1 className="text-3xl font-bold mb-4">New Experiment</h1>
+        <p className="text-muted-foreground">Loading presets...</p>
       </div>
     );
   }
 
   return (
-    <div>
-      <h1>New Experiment</h1>
+    <div className="container max-w-2xl py-8">
+      <h1 className="text-3xl font-bold mb-6">New Experiment</h1>
       {error && (
-        <div
-          style={{
-            padding: "1rem",
-            backgroundColor: "#fee",
-            color: "#c00",
-            borderRadius: "4px",
-            marginBottom: "1rem",
-          }}
-        >
+        <div className="mb-6 p-4 bg-destructive/10 text-destructive border border-destructive/20 rounded-md">
           Error: {error}
         </div>
       )}
-      <form onSubmit={handleSubmit} style={{ maxWidth: "600px", marginTop: "2rem" }}>
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="name"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
-          >
-            Experiment Name *
-          </label>
-          <input
-            id="name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="metric"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
-          >
-            Metric *
-          </label>
-          <select
-            id="metric"
-            value={metricId}
-            onChange={(e) => setMetricId(e.target.value)}
-            required
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-            }}
-          >
-            {metrics.map((m) => (
-              <option key={m.id} value={m.id}>
-                {m.name} - {m.description}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="stressSuite"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
-          >
-            Stress Suite *
-          </label>
-          <select
-            id="stressSuite"
-            value={stressSuiteId}
-            onChange={(e) => setStressSuiteId(e.target.value)}
-            required
-            disabled={loading}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-            }}
-          >
-            {stressSuites.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} - {s.description}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="dataset"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
-          >
-            Dataset {datasets.length === 0 ? "(none found)" : ""}
-          </label>
-          {datasets.length === 0 ? (
-            <div
-              style={{
-                padding: "0.75rem",
-                backgroundColor: "#fff3cd",
-                border: "1px solid #ffc107",
-                borderRadius: "4px",
-                fontSize: "0.875rem",
-                color: "#856404",
-              }}
-            >
-              No datasets found. Place CSV files under the repo's data/ directory (e.g., data/demo_binary_label_noise.csv).
+      <Card>
+        <CardHeader>
+          <CardTitle>Create New Experiment</CardTitle>
+          <CardDescription>Configure your experiment settings and start a new run.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="name">
+                Experiment Name <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="name"
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                disabled={loading}
+                placeholder="Enter experiment name"
+              />
             </div>
-          ) : (
-            <select
-              id="dataset"
-              value={datasetPath}
-              onChange={(e) => setDatasetPath(e.target.value)}
-              disabled={loading}
-              style={{
-                width: "100%",
-                padding: "0.5rem",
-                border: "1px solid #ccc",
-                borderRadius: "4px",
-                fontSize: "1rem",
-              }}
+
+            <div className="space-y-2">
+              <Label htmlFor="metric">
+                Metric <span className="text-destructive">*</span>
+              </Label>
+              <Select value={metricId} onValueChange={setMetricId} disabled={loading} required>
+                <SelectTrigger id="metric">
+                  <SelectValue placeholder="Select a metric" />
+                </SelectTrigger>
+                <SelectContent>
+                  {metrics.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} - {m.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="stressSuite">
+                Stress Suite <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={stressSuiteId}
+                onValueChange={setStressSuiteId}
+                disabled={loading}
+                required
+              >
+                <SelectTrigger id="stressSuite">
+                  <SelectValue placeholder="Select a stress suite" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stressSuites.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name} - {s.description}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="dataset">
+                Dataset {datasets.length === 0 ? <span className="text-muted-foreground">(none found)</span> : ""}
+              </Label>
+              {datasets.length === 0 ? (
+                <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                  No datasets found. Place CSV files under the repo's data/ directory (e.g., data/demo_binary_label_noise.csv).
+                </div>
+              ) : (
+                <Select value={datasetPath} onValueChange={setDatasetPath} disabled={loading}>
+                  <SelectTrigger id="dataset">
+                    <SelectValue placeholder="Select a dataset" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {datasets.map((d) => (
+                      <SelectItem key={d.id} value={d.path}>
+                        {d.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={loading}
+                rows={4}
+                placeholder="Add any notes about this experiment..."
+              />
+            </div>
+
+            <Button
+              type="submit"
+              disabled={loading || !name || !metricId || !stressSuiteId}
+              className="w-full"
             >
-              {datasets.map((d) => (
-                <option key={d.id} value={d.path}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-          )}
-        </div>
-
-        <div style={{ marginBottom: "1.5rem" }}>
-          <label
-            htmlFor="notes"
-            style={{ display: "block", marginBottom: "0.5rem", fontWeight: "bold" }}
-          >
-            Notes (optional)
-          </label>
-          <textarea
-            id="notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            disabled={loading}
-            rows={4}
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              border: "1px solid #ccc",
-              borderRadius: "4px",
-              fontSize: "1rem",
-              fontFamily: "inherit",
-            }}
-          />
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading || !name || !metricId || !stressSuiteId}
-          style={{
-            padding: "0.75rem 1.5rem",
-            backgroundColor: loading ? "#ccc" : "#0070f3",
-            color: "white",
-            border: "none",
-            borderRadius: "4px",
-            fontSize: "1rem",
-            fontWeight: "bold",
-            cursor: loading ? "not-allowed" : "pointer",
-          }}
-        >
-          {loading ? "Creating & Running..." : "Create & Run"}
-        </button>
-      </form>
+              {loading ? "Creating & Running..." : "Create & Run"}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   );
 }
