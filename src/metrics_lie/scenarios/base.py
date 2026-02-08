@@ -13,6 +13,7 @@ class ScenarioContext:
     Extend later (e.g., task type, subgroup col, etc.).
     """
     task: str = "binary_classification"
+    surface_type: str = "probability"
 
 
 class Scenario(Protocol):

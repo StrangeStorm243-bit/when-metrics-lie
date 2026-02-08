@@ -75,6 +75,9 @@ export interface ResultSummary {
   component_scores: ComponentScore[];
   scenario_results: ScenarioResult[];
   flags: FindingFlag[];
+  prediction_surface?: Record<string, unknown> | null;
+  applicable_metrics?: string[];
+  analysis_artifacts?: Record<string, unknown> | null;
   generated_at: string;
 }
 
@@ -212,6 +215,18 @@ export async function listRuns(experimentId: string): Promise<RunSummary[]> {
  */
 export async function getRunResult(experimentId: string, runId: string): Promise<ResultSummary> {
   return apiFetch<ResultSummary>(`/experiments/${experimentId}/runs/${runId}/results`);
+}
+
+export interface RunAnalysisResponse {
+  run_id: string;
+  analysis_artifacts: Record<string, unknown>;
+}
+
+export async function getRunAnalysis(
+  experimentId: string,
+  runId: string
+): Promise<RunAnalysisResponse> {
+  return apiFetch<RunAnalysisResponse>(`/experiments/${experimentId}/runs/${runId}/analysis`);
 }
 
 /**

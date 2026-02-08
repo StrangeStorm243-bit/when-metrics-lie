@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 
-from ..contracts import ExperimentCreateRequest, ExperimentSummary, ResultSummary, RunRequest, RunResponse
+from ..contracts import ExperimentCreateRequest, ExperimentSummary, ResultSummary, RunAnalysisResponse, RunRequest, RunResponse
 from ..engine_bridge import run_experiment
 from ..persistence import load_experiment, load_result_for_run, list_experiments, list_runs, save_experiment, save_result
 from ..storage import METRIC_PRESETS, STRESS_SUITE_PRESETS
@@ -165,6 +165,32 @@ async def get_run_results(experiment_id: str, run_id: str) -> ResultSummary:
     
     try:
         return load_result_for_run(experiment_id, run_id)
+    except FileNotFoundError as e:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(e),
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e),
+        )
+
+
+@router.get("/{experiment_id}/runs/{run_id}/analysis", response_model=RunAnalysisResponse)
+async def get_run_analysis(experiment_id: str, run_id: str) -> RunAnalysisResponse:
+    """Get Phase 5 analysis artifacts for a specific run."""
+    try:
+        load_experiment(experiment_id)
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Experiment {experiment_id} not found",
+        )
+
+    try:
+        result = load_result_for_run(experiment_id, run_id)
+        return RunAnalysisResponse(run_id=run_id, analysis_artifacts=result.analysis_artifacts or {})
     except FileNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

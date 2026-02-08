@@ -25,7 +25,8 @@ class ScoreNoiseScenario:
             raise ValueError("score_noise.sigma must be >= 0")
         s = y_score.astype(float).copy()
         s = s + rng.normal(loc=0.0, scale=self.sigma, size=s.shape[0])
-        s = np.clip(s, 0.0, 1.0)
+        if ctx.surface_type == "probability":
+            s = np.clip(s, 0.0, 1.0)
         return y_true, s
 
     def describe(self) -> Dict[str, Any]:

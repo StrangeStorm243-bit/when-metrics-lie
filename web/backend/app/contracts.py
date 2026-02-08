@@ -76,5 +76,20 @@ class ResultSummary(BaseModel):
     component_scores: list[ComponentScore] = Field(default_factory=list, description="Per-component scores")
     scenario_results: list[ScenarioResult] = Field(default_factory=list, description="Per-scenario results")
     flags: list[FindingFlag] = Field(default_factory=list, description="Findings and flags")
+    prediction_surface: Optional[dict] = Field(
+        None, description="Standardized prediction surface summary (Phase 5)"
+    )
+    applicable_metrics: list[str] = Field(
+        default_factory=list, description="Applicable metrics resolved for this run (Phase 5)"
+    )
+    analysis_artifacts: Optional[dict] = Field(
+        None, description="Phase 5 analysis artifacts (threshold sweep, sensitivity, etc.)"
+    )
     generated_at: datetime = Field(..., description="Timestamp when results were generated")
+
+
+class RunAnalysisResponse(BaseModel):
+    """Phase 5 analysis artifacts for a run."""
+    run_id: str = Field(..., description="Run ID")
+    analysis_artifacts: dict = Field(default_factory=dict, description="Threshold sweep, sensitivity, disagreement, failure modes")
 

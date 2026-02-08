@@ -589,6 +589,39 @@ export default function ExperimentPage() {
           )}
         </div>
 
+        {(result.prediction_surface || (result.applicable_metrics && result.applicable_metrics.length > 0)) && (
+          <div
+            style={{
+              padding: "1.5rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              backgroundColor: "white",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Prediction Surface</h2>
+            {result.prediction_surface ? (
+              <div style={{ display: "grid", gap: "0.5rem", fontSize: "0.95rem" }}>
+                <div>Type: {String(result.prediction_surface.surface_type)}</div>
+                <div>Samples: {String(result.prediction_surface.n_samples)}</div>
+                <div>
+                  Threshold:{" "}
+                  {String(
+                    (result.prediction_surface as Record<string, unknown>).threshold ?? "N/A"
+                  )}
+                </div>
+                <div>Calibration: {String(result.prediction_surface.calibration_state)}</div>
+              </div>
+            ) : (
+              <div style={{ color: "#666" }}>No prediction surface available.</div>
+            )}
+            {result.applicable_metrics && result.applicable_metrics.length > 0 && (
+              <div style={{ marginTop: "1rem", fontSize: "0.95rem" }}>
+                Applicable metrics: {result.applicable_metrics.join(", ")}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Component Scores */}
         <div
           style={{

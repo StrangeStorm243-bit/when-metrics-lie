@@ -20,6 +20,27 @@ class DatasetSpec(BaseModel):
         default=None,
         description="Optional subgroup column for fairness/robustness diagnostics.",
     )
+    feature_cols: Optional[List[str]] = Field(
+        default=None,
+        description="Optional list of feature columns for model inference.",
+    )
+
+
+class ModelSourceSpec(BaseModel):
+    kind: Literal["pickle", "import"] = Field(
+        ...,
+        description="Model source type. Callable sources are only supported in Python API.",
+    )
+    path: Optional[str] = Field(
+        default=None,
+        description="Path to pickled model (if kind=pickle).",
+    )
+    import_path: Optional[str] = Field(
+        default=None,
+        description="Import path to model object (if kind=import), e.g. module:attr",
+    )
+    threshold: Optional[float] = Field(default=0.5, description="Threshold for probability surfaces.")
+    positive_label: Optional[int] = Field(default=1, description="Positive label index.")
 
 
 class ScenarioSpec(BaseModel):
@@ -40,6 +61,10 @@ class ExperimentSpec(BaseModel):
 
     dataset: DatasetSpec
     metric: str = Field(..., description="Metric identifier, e.g. 'auc', 'logloss', 'accuracy'.")
+    model_source: Optional[ModelSourceSpec] = Field(
+        default=None,
+        description="Optional model source to generate predictions via inference.",
+    )
 
     scenarios: List[ScenarioSpec] = Field(default_factory=list)
 

@@ -170,6 +170,15 @@ export default function AssistantPage() {
         parts.push(`Top flags: ${topFlags.join(", ")}`);
       }
 
+      if (loadedResult.prediction_surface) {
+        parts.push(
+          `Prediction surface: ${String(loadedResult.prediction_surface.surface_type)}`
+        );
+      }
+      if (loadedResult.applicable_metrics && loadedResult.applicable_metrics.length > 0) {
+        parts.push(`Applicable metrics: ${loadedResult.applicable_metrics.join(", ")}`);
+      }
+
       assistantContent = parts.join(". ") + ".";
     }
 

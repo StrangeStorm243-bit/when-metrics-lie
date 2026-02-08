@@ -12,6 +12,8 @@ class LoadedBinaryDataset:
     y_true: pd.Series
     y_score: pd.Series
     subgroup: Optional[pd.Series] = None
+    X: Optional[pd.DataFrame] = None
+    feature_cols: Optional[list[str]] = None
 
 
 def _validate_probability_series(s: pd.Series, name: str) -> None:
@@ -35,6 +37,10 @@ def load_binary_csv(
     y_true_col: str,
     y_score_col: str,
     subgroup_col: str | None = None,
+    *,
+    feature_cols: list[str] | None = None,
+    require_features: bool = False,
+    allow_missing_score: bool = False,
 ) -> LoadedBinaryDataset:
     p = Path(path)
     if not p.exists():
@@ -42,9 +48,13 @@ def load_binary_csv(
 
     df = pd.read_csv(p)
 
-    for col in [y_true_col, y_score_col]:
-        if col not in df.columns:
-            raise ValueError(f"Missing required column '{col}'. Available: {list(df.columns)}")
+    if y_true_col not in df.columns:
+        raise ValueError(f"Missing required column '{y_true_col}'. Available: {list(df.columns)}")
+    if y_score_col not in df.columns:
+        if allow_missing_score:
+            df[y_score_col] = 0.0
+        else:
+            raise ValueError(f"Missing required column '{y_score_col}'. Available: {list(df.columns)}")
 
     y_true = df[y_true_col]
     y_score = df[y_score_col]
@@ -58,4 +68,30 @@ def load_binary_csv(
             raise ValueError(f"Missing subgroup column '{subgroup_col}'. Available: {list(df.columns)}")
         subgroup = df[subgroup_col]
 
-    return LoadedBinaryDataset(y_true=y_true.astype(int), y_score=y_score.astype(float), subgroup=subgroup)
+    X = None
+    resolved_feature_cols = None
+    if feature_cols is not None:
+        missing = [c for c in feature_cols if c not in df.columns]
+        if missing:
+            raise ValueError(f"Missing feature columns: {missing}. Available: {list(df.columns)}")
+        resolved_feature_cols = list(feature_cols)
+        X = df[resolved_feature_cols]
+    elif require_features:
+        excluded = {y_true_col, y_score_col}
+        if subgroup_col:
+            excluded.add(subgroup_col)
+        inferred = [c for c in df.columns if c not in excluded]
+        if not inferred:
+            raise ValueError(
+                "No feature columns inferred. Provide feature_cols explicitly."
+            )
+        resolved_feature_cols = inferred
+        X = df[resolved_feature_cols]
+
+    return LoadedBinaryDataset(
+        y_true=y_true.astype(int),
+        y_score=y_score.astype(float),
+        subgroup=subgroup,
+        X=X,
+        feature_cols=resolved_feature_cols,
+    )

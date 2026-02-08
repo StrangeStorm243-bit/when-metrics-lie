@@ -81,8 +81,9 @@ def run_scenarios(
             else:
                 v = metric_fn(y_p, s_p)
             vals.append(float(v))
-            briers.append(brier_score(y_p, s_p))
-            eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
+            if ctx.surface_type == "probability":
+                briers.append(brier_score(y_p, s_p))
+                eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
 
             # Metric gaming: threshold optimization (only for accuracy)
             if metric_name == "accuracy":
@@ -111,19 +112,20 @@ def run_scenarios(
                                 subgroup_metric_vals[group_key] = []
                             subgroup_metric_vals[group_key].append(metric_val)
 
-                        # Calibration per group (always valid)
+                        # Calibration per group (only for probability surface)
                         if group_key not in subgroup_brier_vals:
                             subgroup_brier_vals[group_key] = []
                             subgroup_ece_vals[group_key] = []
-                        subgroup_brier_vals[group_key].append(brier_score(y_g, s_g))
-                        subgroup_ece_vals[group_key].append(
-                            expected_calibration_error(y_g, s_g, n_bins=10)
-                        )
+                        if ctx.surface_type == "probability":
+                            subgroup_brier_vals[group_key].append(brier_score(y_g, s_g))
+                            subgroup_ece_vals[group_key].append(
+                                expected_calibration_error(y_g, s_g, n_bins=10)
+                            )
 
-        diag: Dict = {
-            "brier": summarize(briers).model_dump(),
-            "ece": summarize(eces).model_dump(),
-        }
+        diag: Dict = {}
+        if ctx.surface_type == "probability" and briers and eces:
+            diag["brier"] = summarize(briers).model_dump()
+            diag["ece"] = summarize(eces).model_dump()
 
         # Add subgroup diagnostics if computed
         if subgroup is not None and (
@@ -180,7 +182,7 @@ def run_scenarios(
 
             # Downstream impacts: compute on representative trial with mean optimal threshold
             downstream: Dict = {}
-            if gaming_trial_data:
+            if gaming_trial_data and ctx.surface_type == "probability":
                 # Use first trial as representative
                 y_rep, s_rep = gaming_trial_data[0]
                 y_pred_opt = (s_rep >= mean_opt_thresh).astype(int)

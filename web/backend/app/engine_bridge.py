@@ -150,13 +150,17 @@ def _get_default_dataset(create_req: ExperimentCreateRequest) -> dict:
     # ALWAYS use absolute path in spec dict
     path_str = str(dataset_path.resolve())
     
-    return {
+    dataset_dict = {
         "source": "csv",
         "path": path_str,
         "y_true_col": "y_true",
         "y_score_col": "y_score",
         "subgroup_col": "group",
     }
+    feature_cols = create_req.config.get("feature_cols") if create_req.config else None
+    if isinstance(feature_cols, list) and feature_cols:
+        dataset_dict["feature_cols"] = feature_cols
+    return dataset_dict
 
 
 def _bundle_to_result_summary(
@@ -229,6 +233,9 @@ def _bundle_to_result_summary(
         component_scores=component_scores,
         scenario_results=scenario_results,
         flags=flags,
+        prediction_surface=bundle.prediction_surface,
+        applicable_metrics=bundle.applicable_metrics,
+        analysis_artifacts=bundle.analysis_artifacts,
         generated_at=datetime.fromisoformat(bundle.created_at.replace("Z", "+00:00")),
     )
 
@@ -265,6 +272,9 @@ def run_experiment(
             "run_id": run_id,
         },
     }
+    model_source = create_req.config.get("model_source") if create_req.config else None
+    if isinstance(model_source, dict):
+        spec_dict["model_source"] = model_source
 
     # Ensure core DB is initialized before calling engine
     ensure_core_db_initialized()

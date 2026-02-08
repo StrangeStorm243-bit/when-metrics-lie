@@ -10,21 +10,61 @@ METRIC_PRESETS = [
         "id": "auc",
         "name": "AUC-ROC",
         "description": "Area under the ROC curve",
+        "requires_surface": ["probability", "score"],
+    },
+    {
+        "id": "pr_auc",
+        "name": "PR-AUC",
+        "description": "Area under the Precision-Recall curve",
+        "requires_surface": ["probability", "score"],
     },
     {
         "id": "accuracy",
         "name": "Accuracy",
         "description": "Classification accuracy",
+        "requires_surface": ["label", "probability"],
     },
     {
         "id": "logloss",
         "name": "Log Loss",
         "description": "Logarithmic loss (cross-entropy)",
+        "requires_surface": ["probability"],
     },
     {
         "id": "f1",
         "name": "F1 Score",
         "description": "Harmonic mean of precision and recall",
+        "requires_surface": ["label", "probability"],
+    },
+    {
+        "id": "precision",
+        "name": "Precision",
+        "description": "Positive predictive value",
+        "requires_surface": ["label", "probability"],
+    },
+    {
+        "id": "recall",
+        "name": "Recall",
+        "description": "True positive rate",
+        "requires_surface": ["label", "probability"],
+    },
+    {
+        "id": "matthews_corrcoef",
+        "name": "Matthews Corrcoef",
+        "description": "Matthews correlation coefficient",
+        "requires_surface": ["label", "probability"],
+    },
+    {
+        "id": "brier_score",
+        "name": "Brier Score",
+        "description": "Mean squared error of probabilistic predictions",
+        "requires_surface": ["probability"],
+    },
+    {
+        "id": "ece",
+        "name": "Expected Calibration Error",
+        "description": "Calibration error across probability bins",
+        "requires_surface": ["probability"],
     },
 ]
 

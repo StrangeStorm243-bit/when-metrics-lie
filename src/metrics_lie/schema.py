@@ -48,6 +48,11 @@ class ResultBundle(BaseModel):
 
     baseline: Optional[MetricSummary] = None
     scenarios: List[ScenarioResult] = Field(default_factory=list)
+    prediction_surface: Optional[Dict[str, Any]] = None
+    applicable_metrics: List[str] = Field(default_factory=list)
+    metric_results: Dict[str, MetricSummary] = Field(default_factory=dict)
+    scenario_results_by_metric: Dict[str, List[ScenarioResult]] = Field(default_factory=dict)
+    analysis_artifacts: Dict[str, Any] = Field(default_factory=dict)
 
     notes: Dict[str, Any] = Field(default_factory=dict)
 
