@@ -15,13 +15,7 @@ from metrics_lie.artifacts.plots import (
 )
 from metrics_lie.datasets.loaders import load_binary_csv
 from metrics_lie.metrics.applicability import ApplicableMetricSet, DatasetProperties, MetricResolver
-from metrics_lie.model import (
-    CalibrationState,
-    ModelAdapter,
-    ModelSourceImport,
-    ModelSourcePickle,
-    SurfaceType,
-)
+from metrics_lie.model.surface import SurfaceType
 from metrics_lie.analysis import (
     analyze_metric_disagreements,
     locate_failure_modes,
@@ -109,6 +103,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
     prediction_surface = None
     surface_type = SurfaceType.PROBABILITY
     if spec.model_source is not None:
+        from metrics_lie.model.adapter import ModelAdapter
+        from metrics_lie.model.sources import ModelSourceImport, ModelSourcePickle
+        from metrics_lie.model.surface import CalibrationState
         if ds.X is None:
             raise ValueError("Model inference requires feature columns in dataset.")
         if spec.model_source.kind == "pickle":
