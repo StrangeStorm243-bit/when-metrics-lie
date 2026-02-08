@@ -196,3 +196,5 @@ Should return: `{"status":"ok"}`
 - Check Python version (requires Python 3.10+)
 - Verify dependencies: `pip install -r web/backend/requirements.txt`
 - Check that repo root contains `pyproject.toml`
+
+CLI commands assume repo root as CWD; run cd $(git rev-parse --show-toplevel) first.
