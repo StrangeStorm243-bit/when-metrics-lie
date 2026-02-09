@@ -12,7 +12,7 @@
     "metric": "auc",
     "model_source": {
         "kind": "import",
-        "import_path": "examples.demo_model:get_model",
+        "import_path": "examples.demo_model:MODEL",
         "threshold": 0.5,
         "positive_label": 1
     },
