@@ -1,0 +1,30 @@
+{
+    "name": "demo_model_inference",
+    "task": "binary_classification",
+    "dataset": {
+        "source": "csv",
+        "path": "data/demo_binary.csv",
+        "y_true_col": "y_true",
+        "y_score_col": "y_score",
+        "subgroup_col": "group",
+        "feature_cols": ["y_score"]
+    },
+    "metric": "auc",
+    "model_source": {
+        "kind": "import",
+        "import_path": "examples.demo_model:MODEL",
+        "threshold": 0.5,
+        "positive_label": 1
+    },
+    "scenarios": [
+        { "id": "label_noise", "params": { "p": 0.1 } },
+        { "id": "score_noise", "params": { "sigma": 0.05 } },
+        { "id": "class_imbalance", "params": { "target_pos_rate": 0.2, "max_remove_frac": 0.8 } }
+    ],
+    "n_trials": 200,
+    "seed": 42,
+    "tags": {
+        "owner": "local",
+        "purpose": "phase5_model_inference_demo"
+    }
+}

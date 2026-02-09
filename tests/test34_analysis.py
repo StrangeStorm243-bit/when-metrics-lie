@@ -83,3 +83,32 @@ def test_metric_disagreement_and_failure_modes() -> None:
     )
     assert failures.total_samples == 4
     assert len(failures.failure_samples) == 2
+
+
+def test_failure_modes_worst_subgroup_is_max() -> None:
+    """worst_subgroup must be the group with the HIGHEST mean contribution (worst performance)."""
+    # "bad" group: y_true=1 but surface predicts ~0 → high contribution
+    # "good" group: y_true=1 and surface predicts ~1 → low contribution
+    y_true = np.array([1, 1, 1, 1], dtype=int)
+    values = np.array([0.1, 0.15, 0.95, 0.9], dtype=float)  # bad, bad, good, good
+    surface = PredictionSurface(
+        surface_type=SurfaceType.PROBABILITY,
+        values=values,
+        dtype=values.dtype,
+        n_samples=4,
+        class_names=("negative", "positive"),
+        positive_label=1,
+        threshold=0.5,
+        calibration_state=CalibrationState.UNKNOWN,
+        model_hash=None,
+        is_deterministic=True,
+    )
+    subgroup = np.array(["bad", "bad", "good", "good"])
+    report = locate_failure_modes(
+        y_true=y_true,
+        surface=surface,
+        metrics=["accuracy"],
+        subgroup=subgroup,
+        top_k=4,
+    )
+    assert report.worst_subgroup == "bad"

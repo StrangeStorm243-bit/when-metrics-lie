@@ -86,7 +86,7 @@ def locate_failure_modes(
             group_scores.setdefault(key, []).append(float(contributions[idx]))
         if group_scores:
             group_means = {k: float(np.mean(v)) for k, v in group_scores.items()}
-            worst_subgroup = min(group_means, key=group_means.get)
+            worst_subgroup = max(group_means, key=group_means.get)
             summary["subgroup_means"] = group_means
 
     return FailureModeReport(

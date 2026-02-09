@@ -20,10 +20,11 @@
 
 ### ➡️ Phase 5 Entry Point
 
-- Model upload + evaluation adapters
-- True conversational query layer with tool-calling
-- Scenario library expansion + metric scoring policies
-- Hosted deployment & auth
+- **Model adapter**: Load one fitted sklearn model (pickle or import path) and produce a standardized `PredictionSurface` (labels, probabilities, or scores). Inference-only; Spectra never trains.
+- **Metric extraction (applicability)**: Deterministic inference of which metrics are valid given (task type + surface type + dataset properties). This is rule-based — NOT code parsing, NOT RAG, NOT LLM recommendations. See `src/metrics_lie/metrics/applicability.py`.
+- **Analysis artifacts**: Threshold sweep, sensitivity analysis, metric disagreement localization, and failure-mode identification — all persisted as JSON-serializable structured data.
+- Scenario library expansion + metric scoring policies (future)
+- Hosted deployment & auth (future)
 
 ## Quick Start Commands
 
