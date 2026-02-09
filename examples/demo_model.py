@@ -16,9 +16,18 @@ from sklearn.linear_model import LogisticRegression
 _REPO_ROOT = Path(__file__).resolve().parent.parent
 _CSV_PATH = _REPO_ROOT / "data" / "demo_binary.csv"
 
-_df = pd.read_csv(_CSV_PATH)
-_X = _df[["y_score"]].to_numpy(dtype=float)
-_y = _df["y_true"].to_numpy(dtype=int)
+def get_model() -> LogisticRegression:
+    """Return a fitted sklearn binary classifier — deterministic, CPU-only."""
+    df = pd.read_csv(_CSV_PATH)
+    X = df[["y_score"]].to_numpy(dtype=float)
+    y = df["y_true"].to_numpy(dtype=int)
+    return LogisticRegression(random_state=42).fit(X, y)
 
-MODEL: LogisticRegression = LogisticRegression(random_state=42).fit(_X, _y)
-"""Fitted sklearn binary classifier — deterministic, CPU-only."""
+
+def _predict_proba(X: np.ndarray) -> np.ndarray:
+    # Lazily train at call time to avoid training on import.
+    return get_model().predict_proba(X)
+
+
+# Expose sklearn-like surface methods on the factory for ModelAdapter import path usage.
+get_model.predict_proba = _predict_proba  # type: ignore[attr-defined]
