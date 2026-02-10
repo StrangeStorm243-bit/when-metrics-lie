@@ -128,6 +128,178 @@ export default function AssistantPage() {
     }
   }
 
+  function routeQuestion(question: string, result: ResultSummary): string {
+    const q = question.toLowerCase();
+
+    // Help
+    if (/\b(help|what can you|how do i|what do you)\b/.test(q)) {
+      return "I can answer questions about this run. Try asking about:\n\u2022 Headline score\n\u2022 Scenarios and worst-case stress results\n\u2022 Flags and risks\n\u2022 Component scores\n\u2022 Applicable metrics\n\u2022 Threshold sweep\n\u2022 Sensitivity analysis\n\u2022 Failure modes\n\u2022 Metric disagreements\n\u2022 Calibration (Brier / ECE)\n\u2022 Prediction surface";
+    }
+
+    // Headline / score
+    if (/\b(score|headline|overall|total|summary)\b/.test(q) && !/\b(scenario|component|threshold|sensitiv)\b/.test(q)) {
+      const parts = [`Headline score: ${result.headline_score.toFixed(4)}`];
+      if (result.weighted_score != null) {
+        parts.push(`Weighted score: ${result.weighted_score.toFixed(4)}`);
+      }
+      if (result.component_scores.length > 0) {
+        parts.push(`${result.component_scores.length} component score(s) computed`);
+      }
+      parts.push(`${result.flags.length} flag(s) found`);
+      return parts.join(". ") + ".";
+    }
+
+    // Scenarios / worst-case
+    if (/\b(scenario|worst|stress|perturb)\b/.test(q)) {
+      if (result.scenario_results.length === 0) return "No scenarios ran in this experiment.";
+      const sorted = [...result.scenario_results].sort((a, b) => a.delta - b.delta);
+      const worst = sorted[0];
+      const lines = sorted.map(
+        (s) => `\u2022 ${s.scenario_name}: score=${s.score.toFixed(4)}, \u0394=${s.delta.toFixed(4)}${s.severity ? ` [${s.severity}]` : ""}`
+      );
+      return `Worst scenario: ${worst.scenario_name} (\u0394=${worst.delta.toFixed(4)}).\n\n${lines.join("\n")}`;
+    }
+
+    // Flags / risks
+    if (/\b(flag|risk|finding|issue|warning|critical)\b/.test(q)) {
+      if (result.flags.length === 0) return "No flags or findings for this run.";
+      const sorted = [...result.flags].sort((a, b) => {
+        const order: Record<string, number> = { critical: 0, warn: 1, info: 2 };
+        return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
+      });
+      const lines = sorted.map((f) => `\u2022 [${f.severity.toUpperCase()}] ${f.title}: ${f.detail}`);
+      return `${result.flags.length} flag(s) found:\n\n${lines.join("\n")}`;
+    }
+
+    // Component scores
+    if (/\b(component|decision|weight)\b/.test(q)) {
+      if (result.component_scores.length === 0) return "No component scores available.";
+      const lines = result.component_scores.map(
+        (c) => `\u2022 ${c.name}: ${c.score.toFixed(4)}${c.weight != null ? ` (weight: ${c.weight})` : ""}`
+      );
+      return `Component scores:\n\n${lines.join("\n")}`;
+    }
+
+    // Applicable metrics
+    if (/\b(metric|applicable|available)\b/.test(q) && !/\b(disagree|gaming|inflat)\b/.test(q)) {
+      if (!result.applicable_metrics || result.applicable_metrics.length === 0) {
+        return "No applicable metrics information available.";
+      }
+      return `Applicable metrics: ${result.applicable_metrics.join(", ")}.`;
+    }
+
+    // Threshold sweep
+    if (/\b(threshold|sweep|optimal)\b/.test(q)) {
+      const sweep = result.analysis_artifacts?.threshold_sweep as Record<string, unknown> | undefined;
+      if (!sweep) return "No threshold sweep data available for this run.";
+      const optimal = sweep.optimal_thresholds as Record<string, number> | undefined;
+      if (optimal && typeof optimal === "object") {
+        const lines = Object.entries(optimal).map(
+          ([metric, thresh]) => `\u2022 ${metric}: optimal threshold = ${thresh.toFixed(4)}`
+        );
+        const crossovers = sweep.crossover_points as Array<Record<string, unknown>> | undefined;
+        if (crossovers && crossovers.length > 0) {
+          lines.push(`\n${crossovers.length} crossover point(s) detected between metrics.`);
+        }
+        return `Threshold sweep results:\n\n${lines.join("\n")}`;
+      }
+      return "Threshold sweep ran but no optimal thresholds found.";
+    }
+
+    // Sensitivity
+    if (/\b(sensitiv|robust|fragil)\b/.test(q)) {
+      const sens = result.analysis_artifacts?.sensitivity as Record<string, unknown> | undefined;
+      if (!sens) return "No sensitivity analysis data available for this run.";
+      const parts: string[] = [];
+      if (sens.most_sensitive_metric) parts.push(`Most sensitive metric: ${sens.most_sensitive_metric}`);
+      if (sens.least_sensitive_metric) parts.push(`Least sensitive metric: ${sens.least_sensitive_metric}`);
+      const slopes = sens.metric_slopes as Record<string, number> | undefined;
+      if (slopes) {
+        const lines = Object.entries(slopes).map(
+          ([m, s]) => `\u2022 ${m}: slope = ${s.toFixed(6)}`
+        );
+        parts.push(`\nMetric slopes (higher magnitude = more fragile):\n${lines.join("\n")}`);
+      }
+      return parts.length > 0 ? `Sensitivity analysis:\n\n${parts.join("\n")}` : "Sensitivity analysis ran but data is unavailable.";
+    }
+
+    // Failure modes
+    if (/\b(fail|failure|mode)\b/.test(q)) {
+      const fm = result.analysis_artifacts?.failure_modes as Record<string, unknown> | undefined;
+      if (!fm) return "No failure mode data available for this run.";
+      const parts: string[] = [`Total samples: ${fm.total_samples}`];
+      if (fm.worst_subgroup) parts.push(`Worst subgroup: ${fm.worst_subgroup}`);
+      const summary = fm.summary as Record<string, unknown> | undefined;
+      if (summary) {
+        if (summary.mean_contribution != null) parts.push(`Mean contribution: ${(summary.mean_contribution as number).toFixed(4)}`);
+        if (summary.max_contribution != null) parts.push(`Max contribution: ${(summary.max_contribution as number).toFixed(4)}`);
+      }
+      const samples = fm.failure_samples as number[] | undefined;
+      if (samples && samples.length > 0) {
+        parts.push(`Top failure sample indices: ${samples.slice(0, 5).join(", ")}`);
+      }
+      return `Failure mode report:\n\n${parts.join("\n")}`;
+    }
+
+    // Metric disagreements
+    if (/\b(disagree|conflict|contradict)\b/.test(q)) {
+      const dis = result.analysis_artifacts?.metric_disagreements as Array<Record<string, unknown>> | undefined;
+      if (!dis || dis.length === 0) return "No metric disagreement data available for this run.";
+      const lines = dis.map(
+        (d) => `\u2022 ${d.metric_a} vs ${d.metric_b}: disagreement rate = ${((d.disagreement_rate as number) * 100).toFixed(1)}%`
+      );
+      return `Metric disagreements:\n\n${lines.join("\n")}`;
+    }
+
+    // Prediction surface
+    if (/\b(surface|prediction|inference)\b/.test(q)) {
+      if (!result.prediction_surface) return "No prediction surface data available for this run.";
+      const ps = result.prediction_surface;
+      return `Prediction surface: type=${ps.surface_type || "unknown"}, samples=${ps.n_samples || "unknown"}.`;
+    }
+
+    // Calibration
+    if (/\b(calibrat|brier|ece)\b/.test(q)) {
+      const calComponents = result.component_scores.filter(
+        (c) => c.name.includes("brier") || c.name.includes("ece") || c.name.includes("calibrat")
+      );
+      if (calComponents.length > 0) {
+        const lines = calComponents.map((c) => `\u2022 ${c.name}: ${c.score.toFixed(4)}`);
+        return `Calibration components:\n\n${lines.join("\n")}`;
+      }
+      return "No calibration data available in component scores.";
+    }
+
+    // Fallback: general overview
+    const worstScenario = result.scenario_results.length > 0
+      ? result.scenario_results.reduce((min, s) => (s.delta < min.delta ? s : min))
+      : null;
+    const topFlags = [...result.flags]
+      .sort((a, b) => {
+        const order: Record<string, number> = { critical: 0, warn: 1, info: 2 };
+        return (order[a.severity] ?? 3) - (order[b.severity] ?? 3);
+      })
+      .slice(0, 2)
+      .map((f) => f.code);
+
+    const parts: string[] = [];
+    parts.push(`Headline score: ${result.headline_score.toFixed(4)}`);
+    if (worstScenario) {
+      parts.push(`Worst scenario: ${worstScenario.scenario_name} (\u0394=${worstScenario.delta.toFixed(4)})`);
+    }
+    parts.push(`${result.flags.length} flag(s) found`);
+    if (topFlags.length > 0) {
+      parts.push(`Top flags: ${topFlags.join(", ")}`);
+    }
+    if (result.prediction_surface) {
+      parts.push(`Prediction surface: ${String(result.prediction_surface.surface_type)}`);
+    }
+    if (result.applicable_metrics && result.applicable_metrics.length > 0) {
+      parts.push(`Applicable metrics: ${result.applicable_metrics.join(", ")}`);
+    }
+    return parts.join(". ") + ".";
+  }
+
   function handleSend() {
     if (!inputValue.trim()) return;
 
@@ -135,7 +307,6 @@ export default function AssistantPage() {
     setMessages((prev) => [...prev, userMessage]);
     setInputValue("");
 
-    // Generate deterministic response
     let assistantContent: string;
 
     if (!contextLoaded || !loadedResult) {
@@ -145,41 +316,7 @@ export default function AssistantPage() {
         assistantContent = "I have context metadata but no result loaded yet. Click 'Load Context'.";
       }
     } else {
-      // Generate evidence-based response
-      const worstScenario = loadedResult.scenario_results.length > 0
-        ? loadedResult.scenario_results.reduce((min, s) => (s.delta < min.delta ? s : min))
-        : null;
-
-      const topFlags = loadedResult.flags
-        .sort((a, b) => {
-          const severityOrder = { critical: 0, warn: 1, info: 2 };
-          return severityOrder[a.severity] - severityOrder[b.severity];
-        })
-        .slice(0, 2)
-        .map((f) => f.code);
-
-      const parts: string[] = [];
-      parts.push(`Headline score: ${loadedResult.headline_score.toFixed(4)}`);
-
-      if (worstScenario) {
-        parts.push(`Worst scenario: ${worstScenario.scenario_name} (Δ=${worstScenario.delta.toFixed(4)})`);
-      }
-
-      parts.push(`${loadedResult.flags.length} flag(s) found`);
-      if (topFlags.length > 0) {
-        parts.push(`Top flags: ${topFlags.join(", ")}`);
-      }
-
-      if (loadedResult.prediction_surface) {
-        parts.push(
-          `Prediction surface: ${String(loadedResult.prediction_surface.surface_type)}`
-        );
-      }
-      if (loadedResult.applicable_metrics && loadedResult.applicable_metrics.length > 0) {
-        parts.push(`Applicable metrics: ${loadedResult.applicable_metrics.join(", ")}`);
-      }
-
-      assistantContent = parts.join(". ") + ".";
+      assistantContent = routeQuestion(inputValue.trim(), loadedResult);
     }
 
     const assistantMessage: Message = { role: "assistant", content: assistantContent };

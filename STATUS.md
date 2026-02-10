@@ -11,11 +11,11 @@
 - Surface scenario-level and component-level regressions
 - Deterministic analyst explanations
 - Optional AI augmentation with grounded context
+- Free-form chat querying over loaded run context
 
 ## Not Yet Implemented
 - Model upload & inference
 - Metric comparison across different models
-- Free-form chat querying
 - Automatic remediation suggestions
 
 ## Next Phase
