@@ -2,21 +2,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .config import get_settings
 from .routers import experiments, llm, presets, results
 
 app = FastAPI(
     title="Spectra API",
     description="Web API for Spectra evaluation engine",
-    version="0.2.0",
+    version="0.3.0",
 )
 
-# Enable CORS for local frontend development
+# Dynamic CORS origins from config (includes localhost + any SPECTRA_CORS_ORIGINS)
+settings = get_settings()
+settings.validate_startup()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite default
-        "http://localhost:3000",  # React default
-    ],
+    allow_origins=settings.cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -32,4 +32,8 @@ app.include_router(llm.router)
 @app.get("/health")
 async def health():
     """Health check endpoint."""
-    return {"status": "ok"}
+    return {
+        "status": "ok",
+        "hosted": settings.is_hosted,
+        "auth_enabled": settings.auth_enabled,
+    }

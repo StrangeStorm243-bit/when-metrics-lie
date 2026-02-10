@@ -1,8 +1,23 @@
 /**
  * API client for Spectra backend.
+ *
+ * Auth token injection:
+ * - Client-side: AuthTokenProvider (lib/auth.ts) registers a global token provider.
+ * - Server-side: callers pass token explicitly via the optional token parameter.
+ * - Local dev: no token → backend returns 'anonymous' owner_id.
  */
 
 const API_BASE = process.env.NEXT_PUBLIC_SPECTRA_API_BASE || "http://127.0.0.1:8000";
+
+// ---------------------------------------------------------------------------
+// Global token provider (set by AuthTokenProvider on the client)
+// ---------------------------------------------------------------------------
+
+let _tokenProvider: (() => Promise<string | null>) | null = null;
+
+export function setTokenProvider(provider: (() => Promise<string | null>) | null): void {
+  _tokenProvider = provider;
+}
 
 // TypeScript types matching backend contracts
 export interface ExperimentSummary {
@@ -101,15 +116,40 @@ export class ApiError extends Error {
 
 /**
  * Fetch wrapper that throws on non-2xx with parsed JSON error if present.
+ *
+ * Auth token is injected automatically from the global token provider (client)
+ * or from an explicit token parameter (server components).
  */
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T>(
+  path: string,
+  init?: RequestInit & { token?: string },
+): Promise<T> {
+  // Separate our custom 'token' field from standard RequestInit
+  const { token: explicitToken, ...fetchInit } = init || {};
+
+  // Resolve auth token: explicit > global provider > none
+  let authToken: string | null = explicitToken ?? null;
+  if (!authToken && _tokenProvider) {
+    try {
+      authToken = await _tokenProvider();
+    } catch {
+      // Token provider failed; proceed without auth
+    }
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...(fetchInit?.headers as Record<string, string> | undefined),
+  };
+
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
   const url = `${API_BASE}${path}`;
   const response = await fetch(url, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...init?.headers,
-    },
+    ...fetchInit,
+    headers,
   });
 
   if (!response.ok) {
@@ -130,9 +170,10 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
 /**
  * List all experiments.
+ * @param token Optional auth token (for server-side calls).
  */
-export async function listExperiments(): Promise<ExperimentSummary[]> {
-  return apiFetch<ExperimentSummary[]>("/experiments");
+export async function listExperiments(token?: string): Promise<ExperimentSummary[]> {
+  return apiFetch<ExperimentSummary[]>("/experiments", { token });
 }
 
 /**

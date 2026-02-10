@@ -6,8 +6,20 @@ export default async function HomePage() {
   let experiments: ExperimentSummary[] = [];
   let error: string | null = null;
 
+  // Get auth token for server-side API call (null when Clerk not configured)
+  let token: string | undefined;
+  if (process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY) {
+    try {
+      const { auth } = await import("@clerk/nextjs/server");
+      const session = await auth();
+      token = (await session.getToken()) ?? undefined;
+    } catch {
+      // Clerk not configured or no session; proceed without auth
+    }
+  }
+
   try {
-    experiments = await listExperiments();
+    experiments = await listExperiments(token);
   } catch (e) {
     error = e instanceof Error ? e.message : "Failed to load experiments";
   }
