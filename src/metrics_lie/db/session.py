@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -19,6 +20,8 @@ engine = create_engine(
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+_db_init_lock = Lock()
+_db_initialized = False
 
 
 def init_db() -> None:
@@ -26,9 +29,22 @@ def init_db() -> None:
     Base.metadata.create_all(bind=engine)
 
 
+def _ensure_local_sqlite_schema() -> None:
+    """Initialize SQLite schema once per process for fresh environments."""
+    global _db_initialized
+    if _db_initialized:
+        return
+    with _db_init_lock:
+        if _db_initialized:
+            return
+        init_db()
+        _db_initialized = True
+
+
 @contextmanager
 def get_session() -> Session:
     """Context manager for database sessions."""
+    _ensure_local_sqlite_schema()
     session = SessionLocal()
     try:
         yield session

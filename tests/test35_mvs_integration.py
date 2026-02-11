@@ -1,15 +1,26 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import pickle
+from pathlib import Path
 
 import pandas as pd
+import pytest
 from sklearn.linear_model import LogisticRegression
 
+from metrics_lie.db.session import DB_PATH, engine, init_db
 from metrics_lie.execution import run_from_spec_dict
 from metrics_lie.schema import ResultBundle
 from metrics_lie.utils.paths import get_run_dir
+
+
+@pytest.fixture(autouse=True)
+def fresh_registry_db() -> None:
+    """Run test35 against a fresh local SQLite DB every test."""
+    engine.dispose()
+    if DB_PATH.exists():
+        DB_PATH.unlink()
+    init_db()
 
 
 def test_mvs_model_inference_flow(tmp_path: Path) -> None:
