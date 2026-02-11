@@ -44,7 +44,9 @@ def analyze_metric_disagreements(
     if surface.surface_type != SurfaceType.PROBABILITY:
         return []
 
-    threshold_metrics = [m for m in metrics if m in THRESHOLD_METRICS and m in thresholds]
+    threshold_metrics = [
+        m for m in metrics if m in THRESHOLD_METRICS and m in thresholds
+    ]
     results: list[MetricDisagreementResult] = []
 
     for i in range(len(threshold_metrics)):
@@ -57,7 +59,9 @@ def analyze_metric_disagreements(
             pred_b = (surface.values >= tb).astype(int)
             disagree_mask = pred_a != pred_b
             disagree_indices = np.where(disagree_mask)[0].tolist()
-            disagreement_rate = float(np.mean(disagree_mask)) if disagree_mask.size > 0 else 0.0
+            disagreement_rate = (
+                float(np.mean(disagree_mask)) if disagree_mask.size > 0 else 0.0
+            )
             results.append(
                 MetricDisagreementResult(
                     metric_a=ma,

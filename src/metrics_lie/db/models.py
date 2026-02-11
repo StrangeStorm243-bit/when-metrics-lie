@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import json
-from datetime import datetime, timezone
 
 from sqlalchemy import Column, Integer, String, Text, ForeignKey
 from sqlalchemy.orm import declarative_base, relationship
@@ -27,14 +25,18 @@ class Experiment(Base):
     spec_json = Column(Text, nullable=False, default="")
 
     # Relationships
-    runs = relationship("Run", back_populates="experiment", cascade="all, delete-orphan")
+    runs = relationship(
+        "Run", back_populates="experiment", cascade="all, delete-orphan"
+    )
 
 
 class Run(Base):
     __tablename__ = "runs"
 
     run_id = Column(String, primary_key=True)
-    experiment_id = Column(String, ForeignKey("experiments.experiment_id"), nullable=False)
+    experiment_id = Column(
+        String, ForeignKey("experiments.experiment_id"), nullable=False
+    )
     status = Column(String, nullable=False)  # queued, running, completed, failed
     created_at = Column(String, nullable=False)  # ISO8601 UTC string
     started_at = Column(String, nullable=True)  # ISO8601 UTC string
@@ -48,7 +50,9 @@ class Run(Base):
 
     # Relationships
     experiment = relationship("Experiment", back_populates="runs")
-    artifacts = relationship("Artifact", back_populates="run", cascade="all, delete-orphan")
+    artifacts = relationship(
+        "Artifact", back_populates="run", cascade="all, delete-orphan"
+    )
 
 
 class Artifact(Base):
@@ -70,7 +74,9 @@ class Job(Base):
 
     job_id = Column(String, primary_key=True)
     kind = Column(String, nullable=False)  # "run_experiment" or "rerun_run"
-    experiment_id = Column(String, ForeignKey("experiments.experiment_id"), nullable=True)
+    experiment_id = Column(
+        String, ForeignKey("experiments.experiment_id"), nullable=True
+    )
     run_id = Column(String, ForeignKey("runs.run_id"), nullable=True)  # for rerun jobs
     status = Column(String, nullable=False)  # queued, running, completed, failed
     created_at = Column(String, nullable=False)  # ISO8601 UTC string

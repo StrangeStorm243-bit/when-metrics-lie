@@ -42,5 +42,3 @@ def test_changing_seed_changes_experiment_id(tmp_path, monkeypatch):
     exp_b = ExperimentDefinition.from_spec(spec_b, dataset_fingerprint=fp)
 
     assert exp_a.experiment_id != exp_b.experiment_id
-
-

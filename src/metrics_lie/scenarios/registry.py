@@ -18,7 +18,9 @@ def register_scenario(scenario_id: str, factory: ScenarioFactory) -> None:
 
 def create_scenario(scenario_id: str, params: dict[str, Any]) -> Scenario:
     if scenario_id not in _REGISTRY:
-        raise ValueError(f"Unknown scenario '{scenario_id}'. Registered: {sorted(_REGISTRY.keys())}")
+        raise ValueError(
+            f"Unknown scenario '{scenario_id}'. Registered: {sorted(_REGISTRY.keys())}"
+        )
     return _REGISTRY[scenario_id](params)
 
 

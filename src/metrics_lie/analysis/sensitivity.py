@@ -91,7 +91,13 @@ def run_sensitivity_analysis(
                 fn = METRIC_FUNCS.get(metric_id)
                 if fn is None:
                     continue
-                if metric_id in {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}:
+                if metric_id in {
+                    "accuracy",
+                    "f1",
+                    "precision",
+                    "recall",
+                    "matthews_corrcoef",
+                }:
                     val = fn(y_true, noisy, threshold=0.5)
                 elif metric_id == "ece":
                     val = fn(y_true, noisy, n_bins=10)

@@ -10,4 +10,3 @@ __all__ = [
     "DecisionScorecard",
     "build_scorecard",
 ]
-

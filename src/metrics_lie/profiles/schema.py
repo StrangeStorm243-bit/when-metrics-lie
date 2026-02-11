@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from typing import Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -40,23 +39,33 @@ class DecisionProfile(BaseModel):
         """Validate aggregation configuration."""
         mode = v.get("mode")
         if mode not in ["worst_case", "mean", "percentile"]:
-            raise ValueError(f"aggregation.mode must be one of: worst_case, mean, percentile. Got: {mode}")
+            raise ValueError(
+                f"aggregation.mode must be one of: worst_case, mean, percentile. Got: {mode}"
+            )
 
         if mode == "percentile":
             percentile = v.get("percentile")
             if percentile is None:
-                raise ValueError("aggregation.percentile is required when mode='percentile'")
+                raise ValueError(
+                    "aggregation.percentile is required when mode='percentile'"
+                )
             if not (0 < percentile <= 0.5):
-                raise ValueError(f"aggregation.percentile must be in (0, 0.5]. Got: {percentile}")
+                raise ValueError(
+                    f"aggregation.percentile must be in (0, 0.5]. Got: {percentile}"
+                )
 
         scenario_scope = v.get("scenario_scope")
         if scenario_scope not in ["all", "subset"]:
-            raise ValueError(f"aggregation.scenario_scope must be 'all' or 'subset'. Got: {scenario_scope}")
+            raise ValueError(
+                f"aggregation.scenario_scope must be 'all' or 'subset'. Got: {scenario_scope}"
+            )
 
         if scenario_scope == "subset":
             scenario_subset = v.get("scenario_subset")
             if not scenario_subset or len(scenario_subset) == 0:
-                raise ValueError("aggregation.scenario_subset must be non-empty when scenario_scope='subset'")
+                raise ValueError(
+                    "aggregation.scenario_subset must be non-empty when scenario_scope='subset'"
+                )
 
         return v
 
@@ -66,7 +75,9 @@ class DecisionProfile(BaseModel):
         """Validate objectives configuration."""
         primary = v.get("primary")
         if primary != "metric_mean_delta":
-            raise ValueError(f"objectives.primary must be 'metric_mean_delta' (scenario-first). Got: {primary}")
+            raise ValueError(
+                f"objectives.primary must be 'metric_mean_delta' (scenario-first). Got: {primary}"
+            )
 
         secondary = v.get("secondary", [])
         allowed_secondary = [
@@ -100,8 +111,7 @@ class DecisionProfile(BaseModel):
         for key in v.keys():
             if key not in allowed_keys:
                 raise ValueError(
-                    f"weights contains invalid key: {key}. "
-                    f"Allowed: {allowed_keys}"
+                    f"weights contains invalid key: {key}. Allowed: {allowed_keys}"
                 )
         return v
 
@@ -118,4 +128,3 @@ class DecisionProfile(BaseModel):
             if key not in self.thresholds:
                 self.thresholds[key] = default_value
         return self
-

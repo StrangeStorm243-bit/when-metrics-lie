@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -18,10 +17,14 @@ def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def upsert_experiment(session: Session, exp_def: ExperimentDefinition, spec_json_str: str) -> None:
+def upsert_experiment(
+    session: Session, exp_def: ExperimentDefinition, spec_json_str: str
+) -> None:
     """Insert or update an experiment definition."""
-    existing = session.scalar(select(Experiment).where(Experiment.experiment_id == exp_def.experiment_id))
-    
+    existing = session.scalar(
+        select(Experiment).where(Experiment.experiment_id == exp_def.experiment_id)
+    )
+
     if existing:
         # Update existing
         existing.name = exp_def.name
@@ -107,7 +110,9 @@ def get_results_path_for_run(session: Session, run_id: str) -> str:
 
 
 def get_experiment_by_id(session: Session, experiment_id: str) -> Experiment:
-    experiment = session.scalar(select(Experiment).where(Experiment.experiment_id == experiment_id))
+    experiment = session.scalar(
+        select(Experiment).where(Experiment.experiment_id == experiment_id)
+    )
     if experiment is None:
         raise ValueError(f"Experiment not found: {experiment_id}")
     return experiment
@@ -128,6 +133,7 @@ def get_experiment_id_for_run(session: Session, run_id: str) -> str:
 def enqueue_job_run_experiment(session: Session, experiment_id: str) -> str:
     """Enqueue a job to run an experiment. Returns the job_id."""
     import uuid
+
     job_id = uuid.uuid4().hex[:10].upper()
     job = Job(
         job_id=job_id,
@@ -148,6 +154,7 @@ def enqueue_job_run_experiment(session: Session, experiment_id: str) -> str:
 def enqueue_job_rerun(session: Session, run_id: str) -> str:
     """Enqueue a job to rerun a run. Returns the job_id."""
     import uuid
+
     job_id = uuid.uuid4().hex[:10].upper()
     job = Job(
         job_id=job_id,
@@ -168,14 +175,11 @@ def enqueue_job_rerun(session: Session, run_id: str) -> str:
 def claim_next_job(session: Session) -> Job | None:
     """Claim the oldest queued job and mark it as running. Returns the job or None."""
     job = session.scalar(
-        select(Job)
-        .where(Job.status == "queued")
-        .order_by(Job.created_at)
-        .limit(1)
+        select(Job).where(Job.status == "queued").order_by(Job.created_at).limit(1)
     )
     if job is None:
         return None
-    
+
     job.status = "running"
     job.started_at = _now_iso()
     session.commit()
@@ -203,6 +207,7 @@ def mark_job_failed(session: Session, job_id: str, error_msg: str) -> None:
 
 
 # Phase 2.6: Read helpers for CLI queries
+
 
 def list_experiments(session: Session, limit: int = 20) -> list[Experiment]:
     """List experiments, ordered by created_at descending."""
@@ -236,7 +241,9 @@ def get_run(session: Session, run_id: str) -> Run:
     return get_run_by_id(session, run_id)
 
 
-def list_jobs(session: Session, limit: int = 50, status: str | None = None) -> list[Job]:
+def list_jobs(
+    session: Session, limit: int = 50, status: str | None = None
+) -> list[Job]:
     """List jobs with optional status filter, ordered by created_at descending."""
     stmt = select(Job).order_by(Job.created_at.desc())
     if status is not None:
@@ -255,6 +262,9 @@ def get_job(session: Session, job_id: str) -> Job:
 
 def list_artifacts_for_run(session: Session, run_id: str) -> list[ArtifactModel]:
     """List all artifacts for a run."""
-    stmt = select(ArtifactModel).where(ArtifactModel.run_id == run_id).order_by(ArtifactModel.created_at)
+    stmt = (
+        select(ArtifactModel)
+        .where(ArtifactModel.run_id == run_id)
+        .order_by(ArtifactModel.created_at)
+    )
     return list(session.scalars(stmt).all())
-

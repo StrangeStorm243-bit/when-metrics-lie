@@ -6,6 +6,7 @@ import numpy as np
 
 try:
     import matplotlib
+
     matplotlib.use("Agg")  # Non-interactive backend
     import matplotlib.pyplot as plt
 except ImportError:
@@ -23,7 +24,7 @@ def plot_metric_distribution(
 ) -> None:
     """
     Plot histogram of metric values from summary statistics.
-    
+
     Note: The distribution is an approximation reconstructed from summary
     statistics (mean, std, quantiles). It is intended for visualization purposes
     only and should not be used for exact statistical inference.
@@ -47,8 +48,12 @@ def plot_metric_distribution(
         values = np.array([mean])
 
     ax.hist(values, bins=30, edgecolor="black", alpha=0.7)
-    ax.axvline(mean, color="red", linestyle="--", linewidth=2, label=f"Mean: {mean:.4f}")
-    ax.axvline(q50, color="orange", linestyle="--", linewidth=1, label=f"Median: {q50:.4f}")
+    ax.axvline(
+        mean, color="red", linestyle="--", linewidth=2, label=f"Mean: {mean:.4f}"
+    )
+    ax.axvline(
+        q50, color="orange", linestyle="--", linewidth=1, label=f"Median: {q50:.4f}"
+    )
     ax.set_xlabel(metric_name.upper())
     ax.set_ylabel("Frequency")
     ax.set_title(f"{metric_name.upper()} distribution – {scenario_id}")
@@ -145,7 +150,9 @@ def plot_calibration_curve(
 
     # Calibration curve
     if bin_confs:
-        ax.plot(bin_confs, bin_accs, "o-", label="Calibration", linewidth=2, markersize=8)
+        ax.plot(
+            bin_confs, bin_accs, "o-", label="Calibration", linewidth=2, markersize=8
+        )
 
     ax.set_xlabel("Mean predicted probability")
     ax.set_ylabel("Fraction of positives")
@@ -154,55 +161,6 @@ def plot_calibration_curve(
     ax.grid(True, alpha=0.3)
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
-
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close()
-
-
-def plot_threshold_curve(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
-    baseline_threshold: float,
-    optimized_threshold: float,
-    scenario_id: str,
-    out_path: Path,
-) -> None:
-    """
-    Plot accuracy vs threshold curve.
-    Marks baseline and optimized thresholds.
-    """
-    thresholds = np.linspace(0.05, 0.95, 19)
-    accuracies = []
-    for thresh in thresholds:
-        y_pred = (y_score >= thresh).astype(int)
-        acc = float(np.mean(y_pred == y_true))
-        accuracies.append(acc)
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    ax.plot(thresholds, accuracies, "o-", linewidth=2, markersize=6, label="Accuracy")
-    ax.axvline(
-        baseline_threshold,
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"Baseline (t={baseline_threshold:.2f})",
-    )
-    ax.axvline(
-        optimized_threshold,
-        color="green",
-        linestyle="--",
-        linewidth=2,
-        label=f"Optimized (t={optimized_threshold:.2f})",
-    )
-
-    ax.set_xlabel("Threshold")
-    ax.set_ylabel("Accuracy")
-    ax.set_title(f"Threshold optimization – {scenario_id}")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(0, 1)
 
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
@@ -253,6 +211,7 @@ def plot_subgroup_bars(
 
     # Legend
     from matplotlib.patches import Patch
+
     legend_elements = [
         Patch(facecolor="lightgreen", label="Best group"),
         Patch(facecolor="lightcoral", label="Worst group"),
@@ -263,53 +222,3 @@ def plot_subgroup_bars(
     plt.tight_layout()
     plt.savefig(out_path, dpi=150, bbox_inches="tight")
     plt.close()
-
-
-def plot_threshold_curve(
-    y_true: np.ndarray,
-    y_score: np.ndarray,
-    baseline_threshold: float,
-    optimized_threshold: float,
-    scenario_id: str,
-    out_path: Path,
-) -> None:
-    """
-    Plot accuracy vs threshold curve.
-    Marks baseline and optimized thresholds.
-    """
-    thresholds = np.linspace(0.05, 0.95, 19)
-    accuracies = []
-    for thresh in thresholds:
-        y_pred = (y_score >= thresh).astype(int)
-        acc = float(np.mean(y_pred == y_true))
-        accuracies.append(acc)
-
-    fig, ax = plt.subplots(figsize=(8, 6))
-
-    ax.plot(thresholds, accuracies, "o-", linewidth=2, markersize=6, label="Accuracy")
-    ax.axvline(
-        baseline_threshold,
-        color="red",
-        linestyle="--",
-        linewidth=2,
-        label=f"Baseline (t={baseline_threshold:.2f})",
-    )
-    ax.axvline(
-        optimized_threshold,
-        color="green",
-        linestyle="--",
-        linewidth=2,
-        label=f"Optimized (t={optimized_threshold:.2f})",
-    )
-
-    ax.set_xlabel("Threshold")
-    ax.set_ylabel("Accuracy")
-    ax.set_title(f"Threshold optimization – {scenario_id}")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-    ax.set_xlim(0, 1)
-
-    plt.tight_layout()
-    plt.savefig(out_path, dpi=150, bbox_inches="tight")
-    plt.close()
-

@@ -40,5 +40,3 @@ class RunRecord:
         self.status = "failed"
         self.error = error_msg
         self.finished_at = _now_iso()
-
-

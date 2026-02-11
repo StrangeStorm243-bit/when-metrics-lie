@@ -91,4 +91,3 @@ STRESS_SUITE_PRESETS = [
         "description": "Full scenario coverage with all diagnostics enabled",
     },
 ]
-

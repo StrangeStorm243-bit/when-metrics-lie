@@ -73,7 +73,7 @@ def test_run_from_spec_dict_uses_same_experiment_id(tmp_path, monkeypatch):
 
     def fake_get_session():
         # Use an isolated SQLite file for this test.
-        engine = create_engine(f"sqlite:///{tmp_path/'phase24_rerun.db'}")
+        engine = create_engine(f"sqlite:///{tmp_path / 'phase24_rerun.db'}")
         Base.metadata.create_all(engine)
         SessionLocal = sessionmaker(bind=engine)
 
@@ -105,7 +105,7 @@ def test_run_from_spec_dict_uses_same_experiment_id(tmp_path, monkeypatch):
     created_runs.append(run_id_2)
 
     # Inspect the DB to confirm both runs point at the same experiment_id.
-    engine = create_engine(f"sqlite:///{tmp_path/'phase24_rerun.db'}")
+    engine = create_engine(f"sqlite:///{tmp_path / 'phase24_rerun.db'}")
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
     try:
@@ -115,5 +115,3 @@ def test_run_from_spec_dict_uses_same_experiment_id(tmp_path, monkeypatch):
         assert len(exp_ids) == 1
     finally:
         session.close()
-
-

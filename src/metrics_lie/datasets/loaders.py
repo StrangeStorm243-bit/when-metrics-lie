@@ -29,7 +29,9 @@ def _validate_binary_labels(s: pd.Series, name: str) -> None:
         raise ValueError(f"{name} contains NaNs.")
     uniq = set(s.unique().tolist())
     if not uniq.issubset({0, 1, False, True}):
-        raise ValueError(f"{name} must be binary (0/1). Found unique values: {sorted(list(uniq))}")
+        raise ValueError(
+            f"{name} must be binary (0/1). Found unique values: {sorted(list(uniq))}"
+        )
 
 
 def load_binary_csv(
@@ -49,12 +51,16 @@ def load_binary_csv(
     df = pd.read_csv(p)
 
     if y_true_col not in df.columns:
-        raise ValueError(f"Missing required column '{y_true_col}'. Available: {list(df.columns)}")
+        raise ValueError(
+            f"Missing required column '{y_true_col}'. Available: {list(df.columns)}"
+        )
     if y_score_col not in df.columns:
         if allow_missing_score:
             df[y_score_col] = 0.0
         else:
-            raise ValueError(f"Missing required column '{y_score_col}'. Available: {list(df.columns)}")
+            raise ValueError(
+                f"Missing required column '{y_score_col}'. Available: {list(df.columns)}"
+            )
 
     y_true = df[y_true_col]
     y_score = df[y_score_col]
@@ -65,7 +71,9 @@ def load_binary_csv(
     subgroup = None
     if subgroup_col:
         if subgroup_col not in df.columns:
-            raise ValueError(f"Missing subgroup column '{subgroup_col}'. Available: {list(df.columns)}")
+            raise ValueError(
+                f"Missing subgroup column '{subgroup_col}'. Available: {list(df.columns)}"
+            )
         subgroup = df[subgroup_col]
 
     X = None
@@ -73,7 +81,9 @@ def load_binary_csv(
     if feature_cols is not None:
         missing = [c for c in feature_cols if c not in df.columns]
         if missing:
-            raise ValueError(f"Missing feature columns: {missing}. Available: {list(df.columns)}")
+            raise ValueError(
+                f"Missing feature columns: {missing}. Available: {list(df.columns)}"
+            )
         resolved_feature_cols = list(feature_cols)
         X = df[resolved_feature_cols]
     elif require_features:

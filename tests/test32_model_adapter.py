@@ -9,7 +9,12 @@ import pickle
 
 from sklearn.linear_model import LogisticRegression
 
-from metrics_lie.model import ModelAdapter, ModelSourceCallable, ModelSourceImport, ModelSourcePickle
+from metrics_lie.model import (
+    ModelAdapter,
+    ModelSourceCallable,
+    ModelSourceImport,
+    ModelSourcePickle,
+)
 
 
 def _train_model() -> LogisticRegression:

@@ -15,4 +15,3 @@ __all__ = [
     "load_profile_from_dict",
     "load_profile_from_json",
 ]
-

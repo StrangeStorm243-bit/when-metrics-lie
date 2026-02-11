@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import uuid
-from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -14,7 +13,11 @@ from metrics_lie.artifacts.plots import (
     plot_threshold_curve,
 )
 from metrics_lie.datasets.loaders import load_binary_csv
-from metrics_lie.metrics.applicability import ApplicableMetricSet, DatasetProperties, MetricResolver
+from metrics_lie.metrics.applicability import (
+    ApplicableMetricSet,
+    DatasetProperties,
+    MetricResolver,
+)
 from metrics_lie.model.surface import SurfaceType
 from metrics_lie.analysis import (
     analyze_metric_disagreements,
@@ -29,7 +32,10 @@ from metrics_lie.spec import load_experiment_spec
 from metrics_lie.utils.paths import get_run_dir
 from metrics_lie.experiments.datasets import dataset_fingerprint_csv
 from metrics_lie.experiments.definition import ExperimentDefinition
-from metrics_lie.experiments.registry import upsert_experiment as upsert_experiment_jsonl, log_run as log_run_jsonl
+from metrics_lie.experiments.registry import (
+    upsert_experiment as upsert_experiment_jsonl,
+    log_run as log_run_jsonl,
+)
 from metrics_lie.experiments.runs import RunRecord
 from metrics_lie.db.session import get_session
 from metrics_lie.db.crud import (
@@ -40,11 +46,13 @@ from metrics_lie.db.crud import (
     get_experiment_spec_json,
     get_experiment_id_for_run,
 )
-from metrics_lie.compare.compare import compare_runs
 from metrics_lie.experiments.identity import canonical_json
 
-# Ensure scenario registration occurs (import-time registration)
-from metrics_lie.scenarios import class_imbalance, label_noise, score_noise, threshold_gaming  # noqa: F401
+# Ensure scenario registration occurs (import-time registration).
+import metrics_lie.scenarios.class_imbalance  # noqa: F401
+import metrics_lie.scenarios.label_noise  # noqa: F401
+import metrics_lie.scenarios.score_noise  # noqa: F401
+import metrics_lie.scenarios.threshold_gaming  # noqa: F401
 from metrics_lie.runner import RunConfig, run_scenarios
 from metrics_lie.scenarios.base import ScenarioContext
 from metrics_lie.scenarios.registry import create_scenario
@@ -55,7 +63,12 @@ def _summary_from_single_value(v: float) -> MetricSummary:
     return MetricSummary(mean=v, std=0.0, q05=v, q50=v, q95=v, n=1)
 
 
-def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = None, rerun_of: str | None = None) -> str:
+def run_from_spec_dict(
+    spec_dict: dict,
+    *,
+    spec_path_for_notes: str | None = None,
+    rerun_of: str | None = None,
+) -> str:
     """
     Execute an experiment run given a parsed spec dictionary.
 
@@ -78,7 +91,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
     upsert_experiment_jsonl(exp_def)
 
     if spec.metric not in METRICS:
-        raise ValueError(f"Unknown metric '{spec.metric}'. Supported: {sorted(METRICS.keys())}")
+        raise ValueError(
+            f"Unknown metric '{spec.metric}'. Supported: {sorted(METRICS.keys())}"
+        )
 
     # Load dataset. If model_source is provided, require features.
     require_features = spec.model_source is not None
@@ -106,6 +121,7 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
         from metrics_lie.model.adapter import ModelAdapter
         from metrics_lie.model.sources import ModelSourceImport, ModelSourcePickle
         from metrics_lie.model.surface import CalibrationState
+
         if ds.X is None:
             raise ValueError("Model inference requires feature columns in dataset.")
         if spec.model_source.kind == "pickle":
@@ -234,21 +250,21 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
         seed_used=spec.seed,
         rerun_of=rerun_of,
     )
-    
+
     # Phase 2.2: Write to DB (queued)
     with get_session() as session:
         insert_run(session, run_record)
-    
+
     # Phase 2.1: Keep JSONL logging optional
     log_run_jsonl(run_record)
 
     try:
         run_record.mark_running()
-        
+
         # Phase 2.2: Update DB (running)
         with get_session() as session:
             update_run(session, run_record)
-        
+
         # Phase 2.1: Keep JSONL logging optional
         log_run_jsonl(run_record)
 
@@ -261,7 +277,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
 
             # 1. Metric distribution plot
             try:
-                metric_dist_path = paths.artifacts_dir / f"metric_dist_{scenario_id}.png"
+                metric_dist_path = (
+                    paths.artifacts_dir / f"metric_dist_{scenario_id}.png"
+                )
                 plot_metric_distribution(
                     metric_summary=sr.metric.model_dump(),
                     metric_name=spec.metric,
@@ -282,7 +300,10 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
             try:
                 scenario = create_scenario(scenario_id, sr.params)
                 y_p_rep, s_p_rep = scenario.apply(
-                    y_true, y_score, rng_artifacts, ScenarioContext(task=spec.task, surface_type=surface_type.value)
+                    y_true,
+                    y_score,
+                    rng_artifacts,
+                    ScenarioContext(task=spec.task, surface_type=surface_type.value),
                 )
                 if len(y_p_rep) > 0 and len(s_p_rep) > 0:
                     cal_path = paths.artifacts_dir / f"calibration_{scenario_id}.png"
@@ -308,7 +329,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
                 if subgroup_metric:
                     group_means = {k: v["mean"] for k, v in subgroup_metric.items()}
                     if group_means:
-                        subgroup_path = paths.artifacts_dir / f"subgroup_metric_{scenario_id}.png"
+                        subgroup_path = (
+                            paths.artifacts_dir / f"subgroup_metric_{scenario_id}.png"
+                        )
                         plot_subgroup_bars(
                             group_means=group_means,
                             scenario_id=scenario_id,
@@ -331,7 +354,12 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
                     if metric_inflation:
                         scenario = create_scenario(scenario_id, sr.params)
                         y_p_rep, s_p_rep = scenario.apply(
-                            y_true, y_score, rng_artifacts, ScenarioContext(task=spec.task, surface_type=surface_type.value)
+                            y_true,
+                            y_score,
+                            rng_artifacts,
+                            ScenarioContext(
+                                task=spec.task, surface_type=surface_type.value
+                            ),
                         )
                         if len(y_p_rep) > 0 and len(s_p_rep) > 0:
                             # Get mean optimal threshold from diagnostics (approximate)
@@ -340,11 +368,19 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
                             # Estimate optimized threshold from delta (use 0.5 + small adjustment as proxy)
                             # Actually, we need to recompute or store it - let's use a simple heuristic
                             # For now, use 0.5 as baseline and compute optimal from representative trial
-                            from metrics_lie.diagnostics.metric_gaming import find_optimal_threshold
+                            from metrics_lie.diagnostics.metric_gaming import (
+                                find_optimal_threshold,
+                            )
+
                             thresholds = np.linspace(0.05, 0.95, 19)
-                            opt_thresh, _ = find_optimal_threshold(y_p_rep, s_p_rep, thresholds)
-                            
-                            threshold_path = paths.artifacts_dir / f"threshold_curve_{scenario_id}.png"
+                            opt_thresh, _ = find_optimal_threshold(
+                                y_p_rep, s_p_rep, thresholds
+                            )
+
+                            threshold_path = (
+                                paths.artifacts_dir
+                                / f"threshold_curve_{scenario_id}.png"
+                            )
                             plot_threshold_curve(
                                 y_true=y_p_rep,
                                 y_score=s_p_rep,
@@ -374,7 +410,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
             )
 
             if artifacts_list:
-                print(f"[PLOT] Saved {len(artifacts_list)} artifacts for scenario {scenario_id}")
+                print(
+                    f"[PLOT] Saved {len(artifacts_list)} artifacts for scenario {scenario_id}"
+                )
 
         notes = {
             "phase": "1.7B",
@@ -389,9 +427,15 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
         }
 
         analysis_artifacts: dict[str, Any] = {}
-        if prediction_surface is not None and prediction_surface.surface_type == SurfaceType.PROBABILITY:
+        if (
+            prediction_surface is not None
+            and prediction_surface.surface_type == SurfaceType.PROBABILITY
+        ):
             sweep = run_threshold_sweep(
-                y_true=y_true, surface=prediction_surface, metrics=applicable.metrics, n_points=101
+                y_true=y_true,
+                surface=prediction_surface,
+                metrics=applicable.metrics,
+                n_points=101,
             )
             analysis_artifacts["threshold_sweep"] = sweep.to_jsonable()
             sensitivity = run_sensitivity_analysis(
@@ -410,7 +454,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
                 thresholds=sweep.optimal_thresholds,
                 metrics=applicable.metrics,
             )
-            analysis_artifacts["metric_disagreements"] = [d.to_jsonable() for d in disagreements]
+            analysis_artifacts["metric_disagreements"] = [
+                d.to_jsonable() for d in disagreements
+            ]
             failures = locate_failure_modes(
                 y_true=y_true,
                 surface=prediction_surface,
@@ -426,7 +472,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
             metric_name=primary_metric,
             baseline=_summary_from_single_value(baseline_value),
             scenarios=scenario_results_with_artifacts,
-            prediction_surface=prediction_surface.to_jsonable() if prediction_surface else None,
+            prediction_surface=prediction_surface.to_jsonable()
+            if prediction_surface
+            else None,
             applicable_metrics=applicable.metrics,
             metric_results=metric_results,
             scenario_results_by_metric=scenario_results_by_metric,
@@ -438,7 +486,9 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
         print(f"[OK] Wrote results: {paths.results_json}")
         print(f"Baseline {spec.metric} = {baseline_value:.6f}")
         if spec.scenarios:
-            print(f"[OK] Ran {len(spec.scenarios)} scenario(s) with n_trials={spec.n_trials}")
+            print(
+                f"[OK] Ran {len(spec.scenarios)} scenario(s) with n_trials={spec.n_trials}"
+            )
 
         # Phase 2.2: Insert artifacts into DB
         all_artifacts: list[Artifact] = []
@@ -449,20 +499,20 @@ def run_from_spec_dict(spec_dict: dict, *, spec_path_for_notes: str | None = Non
                 insert_artifacts(session, run_id, all_artifacts)
 
         run_record.mark_completed()
-        
+
         # Phase 2.2: Update DB (completed)
         with get_session() as session:
             update_run(session, run_record)
-        
+
         # Phase 2.1: Keep JSONL logging optional
         log_run_jsonl(run_record)
     except Exception as exc:  # pragma: no cover - simple logging wrapper
         run_record.mark_failed(str(exc))
-        
+
         # Phase 2.2: Update DB (failed)
         with get_session() as session:
             update_run(session, run_record)
-        
+
         # Phase 2.1: Keep JSONL logging optional
         log_run_jsonl(run_record)
         raise
@@ -490,7 +540,8 @@ def rerun(run_id: str) -> str:
     spec_dict = json.loads(spec_json_str)
     # Use a descriptive marker in notes so results.json keeps the same schema.
     spec_path_for_notes = f"<rerun_of:{run_id}>"
-    new_run_id = run_from_spec_dict(spec_dict, spec_path_for_notes=spec_path_for_notes, rerun_of=run_id)
+    new_run_id = run_from_spec_dict(
+        spec_dict, spec_path_for_notes=spec_path_for_notes, rerun_of=run_id
+    )
     print(new_run_id)
     return new_run_id
-

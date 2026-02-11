@@ -1,4 +1,5 @@
 """Tests for Phase 2.6 DB read helpers."""
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -21,7 +22,7 @@ def test_list_and_get_experiments(tmp_path):
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
-    
+
     try:
         # Insert test experiment
         exp = Experiment(
@@ -40,17 +41,17 @@ def test_list_and_get_experiments(tmp_path):
         )
         session.add(exp)
         session.commit()
-        
+
         # Test list_experiments
         experiments = list_experiments(session, limit=10)
         assert len(experiments) == 1
         assert experiments[0].experiment_id == "exp_TEST26"
-        
+
         # Test get_experiment
         exp_found = get_experiment(session, "exp_TEST26")
         assert exp_found.experiment_id == "exp_TEST26"
         assert exp_found.name == "test"
-        
+
         # Test get_experiment not found
         try:
             get_experiment(session, "exp_NOTFOUND")
@@ -68,7 +69,7 @@ def test_list_and_get_runs(tmp_path):
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
-    
+
     try:
         # Insert experiment first
         exp = Experiment(
@@ -86,7 +87,7 @@ def test_list_and_get_runs(tmp_path):
             spec_json="{}",
         )
         session.add(exp)
-        
+
         # Insert runs
         run1 = Run(
             run_id="RUN001",
@@ -117,28 +118,28 @@ def test_list_and_get_runs(tmp_path):
         session.add(run1)
         session.add(run2)
         session.commit()
-        
+
         # Test list_runs (all)
         runs = list_runs(session, limit=10)
         assert len(runs) == 2
         # Should be ordered by created_at desc, so RUN002 first
         assert runs[0].run_id == "RUN002"
         assert runs[1].run_id == "RUN001"
-        
+
         # Test list_runs with status filter
         runs_completed = list_runs(session, limit=10, status="completed")
         assert len(runs_completed) == 1
         assert runs_completed[0].run_id == "RUN001"
-        
+
         # Test list_runs with experiment filter
         runs_exp = list_runs(session, limit=10, experiment_id="exp_TEST26")
         assert len(runs_exp) == 2
-        
+
         # Test get_run
         run_found = get_run(session, "RUN001")
         assert run_found.run_id == "RUN001"
         assert run_found.status == "completed"
-        
+
         # Test get_run not found
         try:
             get_run(session, "RUN_NOTFOUND")
@@ -156,7 +157,7 @@ def test_list_and_get_jobs(tmp_path):
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
-    
+
     try:
         # Insert experiment
         exp = Experiment(
@@ -174,7 +175,7 @@ def test_list_and_get_jobs(tmp_path):
             spec_json="{}",
         )
         session.add(exp)
-        
+
         # Insert jobs
         job1 = Job(
             job_id="JOB001",
@@ -203,25 +204,25 @@ def test_list_and_get_jobs(tmp_path):
         session.add(job1)
         session.add(job2)
         session.commit()
-        
+
         # Test list_jobs (all)
         jobs = list_jobs(session, limit=10)
         assert len(jobs) == 2
         # Should be ordered by created_at desc, so JOB002 first
         assert jobs[0].job_id == "JOB002"
         assert jobs[1].job_id == "JOB001"
-        
+
         # Test list_jobs with status filter
         jobs_queued = list_jobs(session, limit=10, status="queued")
         assert len(jobs_queued) == 1
         assert jobs_queued[0].job_id == "JOB002"
-        
+
         # Test get_job
         job_found = get_job(session, "JOB001")
         assert job_found.job_id == "JOB001"
         assert job_found.kind == "run_experiment"
         assert job_found.result_run_id == "RUN001"
-        
+
         # Test get_job not found
         try:
             get_job(session, "JOB_NOTFOUND")
@@ -239,7 +240,7 @@ def test_list_artifacts_for_run(tmp_path):
     Base.metadata.create_all(engine)
     SessionLocal = sessionmaker(bind=engine)
     session = SessionLocal()
-    
+
     try:
         # Insert experiment and run
         exp = Experiment(
@@ -257,7 +258,7 @@ def test_list_artifacts_for_run(tmp_path):
             spec_json="{}",
         )
         session.add(exp)
-        
+
         run = Run(
             run_id="RUN001",
             experiment_id="exp_TEST26",
@@ -272,7 +273,7 @@ def test_list_artifacts_for_run(tmp_path):
             rerun_of=None,
         )
         session.add(run)
-        
+
         # Insert artifacts
         art1 = ArtifactModel(
             run_id="RUN001",
@@ -291,16 +292,15 @@ def test_list_artifacts_for_run(tmp_path):
         session.add(art1)
         session.add(art2)
         session.commit()
-        
+
         # Test list_artifacts_for_run
         artifacts = list_artifacts_for_run(session, "RUN001")
         assert len(artifacts) == 2
         assert artifacts[0].path == "artifacts/plot1.png"
         assert artifacts[1].path == "artifacts/plot2.png"
-        
+
         # Test empty list for non-existent run
         artifacts_empty = list_artifacts_for_run(session, "RUN_NOTFOUND")
         assert len(artifacts_empty) == 0
     finally:
         session.close()
-

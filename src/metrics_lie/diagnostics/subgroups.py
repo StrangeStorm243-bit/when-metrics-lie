@@ -56,4 +56,3 @@ def safe_metric_for_group(
     except (ValueError, Exception):
         # Handle any metric-specific errors gracefully
         return None
-

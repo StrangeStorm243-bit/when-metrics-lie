@@ -73,7 +73,9 @@ def load_model(source: ModelSource) -> tuple[Any, str | None]:
         try:
             module = import_module(module_name)
         except Exception as exc:
-            raise ModelLoadError(f"Failed to import module '{module_name}': {exc}") from exc
+            raise ModelLoadError(
+                f"Failed to import module '{module_name}': {exc}"
+            ) from exc
         if not hasattr(module, attr_name):
             raise ModelLoadError(
                 f"Imported module '{module_name}' has no attribute '{attr_name}'"

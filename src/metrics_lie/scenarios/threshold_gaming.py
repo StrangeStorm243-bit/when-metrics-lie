@@ -36,4 +36,3 @@ def _factory(params: dict[str, Any]) -> ThresholdGamingScenario:
 
 
 register_scenario("threshold_gaming", _factory)
-

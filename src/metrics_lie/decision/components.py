@@ -14,8 +14,12 @@ class DecisionComponents(BaseModel):
     model_config = ConfigDict()
 
     profile_name: str = Field(..., description="Name of the profile used")
-    aggregation: dict[str, Any] = Field(..., description="Echo of profile.aggregation used")
-    scenario_scope: dict[str, Any] = Field(..., description="Echo of scenario list actually used")
+    aggregation: dict[str, Any] = Field(
+        ..., description="Echo of profile.aggregation used"
+    )
+    scenario_scope: dict[str, Any] = Field(
+        ..., description="Echo of scenario list actually used"
+    )
     components: dict[str, float | None] = Field(
         ...,
         description="Aggregated component values (scenario-first)",
@@ -24,4 +28,3 @@ class DecisionComponents(BaseModel):
         default_factory=dict,
         description="Metadata about extraction (must be JSON-serializable)",
     )
-

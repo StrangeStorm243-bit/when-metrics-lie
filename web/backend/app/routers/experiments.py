@@ -1,13 +1,28 @@
 """Experiments API router."""
+
 import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..auth import get_current_user
-from ..contracts import ExperimentCreateRequest, ExperimentSummary, ResultSummary, RunAnalysisResponse, RunRequest, RunResponse
+from ..contracts import (
+    ExperimentCreateRequest,
+    ExperimentSummary,
+    ResultSummary,
+    RunAnalysisResponse,
+    RunRequest,
+    RunResponse,
+)
 from ..engine_bridge import run_experiment
-from ..persistence import load_experiment, load_result_for_run, list_experiments, list_runs, save_experiment, save_result
+from ..persistence import (
+    load_experiment,
+    load_result_for_run,
+    list_experiments,
+    list_runs,
+    save_experiment,
+    save_result,
+)
 from ..storage import METRIC_PRESETS, STRESS_SUITE_PRESETS
 
 router = APIRouter(prefix="/experiments", tags=["experiments"])
@@ -197,7 +212,9 @@ async def get_run_results(
         )
 
 
-@router.get("/{experiment_id}/runs/{run_id}/analysis", response_model=RunAnalysisResponse)
+@router.get(
+    "/{experiment_id}/runs/{run_id}/analysis", response_model=RunAnalysisResponse
+)
 async def get_run_analysis(
     experiment_id: str,
     run_id: str,
@@ -214,7 +231,9 @@ async def get_run_analysis(
 
     try:
         result = load_result_for_run(experiment_id, run_id, owner_id=owner_id)
-        return RunAnalysisResponse(run_id=run_id, analysis_artifacts=result.analysis_artifacts or {})
+        return RunAnalysisResponse(
+            run_id=run_id, analysis_artifacts=result.analysis_artifacts or {}
+        )
     except FileNotFoundError as e:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

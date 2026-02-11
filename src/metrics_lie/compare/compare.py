@@ -37,7 +37,9 @@ def _get_nested(diag: Dict[str, Any], path: Tuple[str, ...]) -> Any:
     return cur
 
 
-def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[str, Any]:
+def compare_bundles(
+    bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]
+) -> Dict[str, Any]:
     report: Dict[str, Any] = {
         "run_a": bundle_a.get("run_id"),
         "run_b": bundle_b.get("run_id"),
@@ -45,7 +47,12 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
         "baseline_delta": {},
         "scenario_deltas": {},
         "metric_gaming_delta": None,
-        "regressions": {"calibration": False, "subgroup": False, "metric": False, "gaming": False},
+        "regressions": {
+            "calibration": False,
+            "subgroup": False,
+            "metric": False,
+            "gaming": False,
+        },
         "risk_flags": [],
         "decision": {"winner": "no_clear_winner", "confidence": "low", "reasoning": []},
     }
@@ -79,15 +86,25 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
         mb = sb.get("metric") if isinstance(sb.get("metric"), dict) else {}
         ma_mean = _get_mean(ma) if isinstance(ma, dict) else None
         mb_mean = _get_mean(mb) if isinstance(mb, dict) else None
-        metric_delta = (mb_mean - ma_mean) if (ma_mean is not None and mb_mean is not None) else None
+        metric_delta = (
+            (mb_mean - ma_mean)
+            if (ma_mean is not None and mb_mean is not None)
+            else None
+        )
 
         brier_a = _get_diag_mean(da, "brier")
         brier_b = _get_diag_mean(db, "brier")
-        brier_delta = (brier_b - brier_a) if (brier_a is not None and brier_b is not None) else None
+        brier_delta = (
+            (brier_b - brier_a)
+            if (brier_a is not None and brier_b is not None)
+            else None
+        )
 
         ece_a = _get_diag_mean(da, "ece")
         ece_b = _get_diag_mean(db, "ece")
-        ece_delta = (ece_b - ece_a) if (ece_a is not None and ece_b is not None) else None
+        ece_delta = (
+            (ece_b - ece_a) if (ece_a is not None and ece_b is not None) else None
+        )
 
         subgap_a = _get_nested(da, ("subgroup_gap", "gap"))
         subgap_b = _get_nested(db, ("subgroup_gap", "gap"))
@@ -113,25 +130,48 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
         }
 
         if isinstance(ece_delta, float):
-            worst_ece_delta = ece_delta if worst_ece_delta is None else max(worst_ece_delta, ece_delta)
+            worst_ece_delta = (
+                ece_delta
+                if worst_ece_delta is None
+                else max(worst_ece_delta, ece_delta)
+            )
         if isinstance(brier_delta, float):
-            worst_brier_delta = brier_delta if worst_brier_delta is None else max(worst_brier_delta, brier_delta)
+            worst_brier_delta = (
+                brier_delta
+                if worst_brier_delta is None
+                else max(worst_brier_delta, brier_delta)
+            )
         if isinstance(subgap_delta, float):
-            worst_subgap_delta = subgap_delta if worst_subgap_delta is None else max(worst_subgap_delta, subgap_delta)
+            worst_subgap_delta = (
+                subgap_delta
+                if worst_subgap_delta is None
+                else max(worst_subgap_delta, subgap_delta)
+            )
 
     # C) metric_inflation deltas (if present in both)
     # We check the first scenario that has it; this is intentionally simple.
     gaming_a = None
     gaming_b = None
     for sid in shared:
-        da = sm_a[sid].get("diagnostics") if isinstance(sm_a[sid].get("diagnostics"), dict) else {}
-        db = sm_b[sid].get("diagnostics") if isinstance(sm_b[sid].get("diagnostics"), dict) else {}
-        if isinstance(da.get("metric_inflation"), dict) and isinstance(db.get("metric_inflation"), dict):
+        da = (
+            sm_a[sid].get("diagnostics")
+            if isinstance(sm_a[sid].get("diagnostics"), dict)
+            else {}
+        )
+        db = (
+            sm_b[sid].get("diagnostics")
+            if isinstance(sm_b[sid].get("diagnostics"), dict)
+            else {}
+        )
+        if isinstance(da.get("metric_inflation"), dict) and isinstance(
+            db.get("metric_inflation"), dict
+        ):
             gaming_a = da["metric_inflation"]
             gaming_b = db["metric_inflation"]
             break
 
     if isinstance(gaming_a, dict) and isinstance(gaming_b, dict):
+
         def _f(d: Dict[str, Any], k: str) -> Optional[float]:
             v = d.get(k)
             return float(v) if isinstance(v, (int, float)) else None
@@ -139,16 +179,31 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
         delta_baseline = None
         delta_optimized = None
         delta_inflation = None
-        if _f(gaming_a, "baseline") is not None and _f(gaming_b, "baseline") is not None:
+        if (
+            _f(gaming_a, "baseline") is not None
+            and _f(gaming_b, "baseline") is not None
+        ):
             delta_baseline = _f(gaming_b, "baseline") - _f(gaming_a, "baseline")
-        if _f(gaming_a, "optimized") is not None and _f(gaming_b, "optimized") is not None:
+        if (
+            _f(gaming_a, "optimized") is not None
+            and _f(gaming_b, "optimized") is not None
+        ):
             delta_optimized = _f(gaming_b, "optimized") - _f(gaming_a, "optimized")
         if _f(gaming_a, "delta") is not None and _f(gaming_b, "delta") is not None:
             delta_inflation = _f(gaming_b, "delta") - _f(gaming_a, "delta")
 
         # downstream deltas (optional)
-        down_a = gaming_a.get("downstream") if isinstance(gaming_a.get("downstream"), dict) else {}
-        down_b = gaming_b.get("downstream") if isinstance(gaming_b.get("downstream"), dict) else {}
+        down_a = (
+            gaming_a.get("downstream")
+            if isinstance(gaming_a.get("downstream"), dict)
+            else {}
+        )
+        down_b = (
+            gaming_b.get("downstream")
+            if isinstance(gaming_b.get("downstream"), dict)
+            else {}
+        )
+
         def _down_delta(k: str) -> Optional[float]:
             va = down_a.get(k)
             vb = down_b.get(k)
@@ -169,26 +224,52 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
 
     # 4) Regression flags (transparent)
     baseline_delta = report["baseline_delta"].get("mean")
-    if isinstance(baseline_delta, (int, float)) and float(baseline_delta) < METRIC_REGRESSION_THRESHOLD:
+    if (
+        isinstance(baseline_delta, (int, float))
+        and float(baseline_delta) < METRIC_REGRESSION_THRESHOLD
+    ):
         report["regressions"]["metric"] = True
-        report["risk_flags"].append(f"metric_regression: baseline_mean_delta={baseline_delta:.6f} < {METRIC_REGRESSION_THRESHOLD}")
+        report["risk_flags"].append(
+            f"metric_regression: baseline_mean_delta={baseline_delta:.6f} < {METRIC_REGRESSION_THRESHOLD}"
+        )
 
-    if isinstance(worst_ece_delta, float) and worst_ece_delta > CALIBRATION_REGRESSION_THRESHOLD:
+    if (
+        isinstance(worst_ece_delta, float)
+        and worst_ece_delta > CALIBRATION_REGRESSION_THRESHOLD
+    ):
         report["regressions"]["calibration"] = True
-        report["risk_flags"].append(f"calibration_regression: worst_ece_mean_delta={worst_ece_delta:.6f} > {CALIBRATION_REGRESSION_THRESHOLD}")
-    if isinstance(worst_brier_delta, float) and worst_brier_delta > CALIBRATION_REGRESSION_THRESHOLD:
+        report["risk_flags"].append(
+            f"calibration_regression: worst_ece_mean_delta={worst_ece_delta:.6f} > {CALIBRATION_REGRESSION_THRESHOLD}"
+        )
+    if (
+        isinstance(worst_brier_delta, float)
+        and worst_brier_delta > CALIBRATION_REGRESSION_THRESHOLD
+    ):
         report["regressions"]["calibration"] = True
-        report["risk_flags"].append(f"calibration_regression: worst_brier_mean_delta={worst_brier_delta:.6f} > {CALIBRATION_REGRESSION_THRESHOLD}")
+        report["risk_flags"].append(
+            f"calibration_regression: worst_brier_mean_delta={worst_brier_delta:.6f} > {CALIBRATION_REGRESSION_THRESHOLD}"
+        )
 
-    if isinstance(worst_subgap_delta, float) and worst_subgap_delta > SUBGROUP_GAP_REGRESSION_THRESHOLD:
+    if (
+        isinstance(worst_subgap_delta, float)
+        and worst_subgap_delta > SUBGROUP_GAP_REGRESSION_THRESHOLD
+    ):
         report["regressions"]["subgroup"] = True
-        report["risk_flags"].append(f"subgroup_regression: worst_subgroup_gap_delta={worst_subgap_delta:.6f} > {SUBGROUP_GAP_REGRESSION_THRESHOLD}")
+        report["risk_flags"].append(
+            f"subgroup_regression: worst_subgroup_gap_delta={worst_subgap_delta:.6f} > {SUBGROUP_GAP_REGRESSION_THRESHOLD}"
+        )
 
     # gaming regression: inflation delta increases materially (simple)
     mgd = report.get("metric_gaming_delta")
-    if isinstance(mgd, dict) and isinstance(mgd.get("delta_inflation"), (int, float)) and mgd["delta_inflation"] > 0.02:
+    if (
+        isinstance(mgd, dict)
+        and isinstance(mgd.get("delta_inflation"), (int, float))
+        and mgd["delta_inflation"] > 0.02
+    ):
         report["regressions"]["gaming"] = True
-        report["risk_flags"].append(f"gaming_regression: delta_inflation_delta={mgd['delta_inflation']:.6f} > 0.02")
+        report["risk_flags"].append(
+            f"gaming_regression: delta_inflation_delta={mgd['delta_inflation']:.6f} > 0.02"
+        )
 
     # 5) Decision summary
     reasoning = []
@@ -199,25 +280,39 @@ def compare_bundles(bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]) -> Dict[
     any_regression = any(bool(v) for v in regressions.values())
 
     if isinstance(baseline_delta, (int, float)):
-        if baseline_delta > 0 and not (regressions["calibration"] or regressions["subgroup"]):
+        if baseline_delta > 0 and not (
+            regressions["calibration"] or regressions["subgroup"]
+        ):
             winner = "run_b"
             confidence = "high" if not any_regression else "medium"
-            reasoning.append("Baseline metric improved and no calibration/subgroup regressions detected.")
+            reasoning.append(
+                "Baseline metric improved and no calibration/subgroup regressions detected."
+            )
         elif baseline_delta > 0 and any_regression:
             winner = "no_clear_winner"
             confidence = "medium"
-            reasoning.append("Baseline metric improved but regressions detected; review tradeoffs.")
+            reasoning.append(
+                "Baseline metric improved but regressions detected; review tradeoffs."
+            )
         elif baseline_delta <= 0:
             winner = "run_a"
             confidence = "medium" if not any_regression else "low"
-            reasoning.append("Baseline metric did not improve; prefer run_a unless risk flags justify tradeoff.")
+            reasoning.append(
+                "Baseline metric did not improve; prefer run_a unless risk flags justify tradeoff."
+            )
     else:
-        reasoning.append("Baseline metric mean not available; insufficient data for clear decision.")
+        reasoning.append(
+            "Baseline metric mean not available; insufficient data for clear decision."
+        )
 
     if report["risk_flags"]:
         reasoning.append(f"Risk flags: {len(report['risk_flags'])} triggered.")
 
-    report["decision"] = {"winner": winner, "confidence": confidence, "reasoning": reasoning}
+    report["decision"] = {
+        "winner": winner,
+        "confidence": confidence,
+        "reasoning": reasoning,
+    }
     return report
 
 
@@ -233,5 +328,3 @@ def compare_runs(run_id_a: str, run_id_b: str) -> Dict[str, Any]:
     report["results_path_a"] = path_a
     report["results_path_b"] = path_b
     return report
-
-

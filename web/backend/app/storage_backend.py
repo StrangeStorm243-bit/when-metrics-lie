@@ -12,6 +12,7 @@ Storage path convention (when hosted):
   artifacts/{owner_id}/experiments/{experiment_id}/runs/{run_id}/analysis.json
   artifacts/{owner_id}/experiments/{experiment_id}/runs/{run_id}/plots/*
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,7 +23,9 @@ from typing import Protocol, runtime_checkable
 class StorageBackend(Protocol):
     """Protocol for artifact storage operations."""
 
-    def upload(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
+    def upload(
+        self, key: str, data: bytes, content_type: str = "application/octet-stream"
+    ) -> str:
         """Upload data to storage. Returns the storage key."""
         ...
 
@@ -59,7 +62,9 @@ class LocalFSStorage:
     def _resolve(self, key: str) -> Path:
         return self._base_dir / Path(key)
 
-    def upload(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
+    def upload(
+        self, key: str, data: bytes, content_type: str = "application/octet-stream"
+    ) -> str:
         path = self._resolve(key)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
@@ -94,7 +99,9 @@ class LocalFSStorage:
 class SupabaseStorage:
     """Supabase Storage backend for hosted deployments."""
 
-    def __init__(self, url: str, service_role_key: str, bucket: str = "artifacts") -> None:
+    def __init__(
+        self, url: str, service_role_key: str, bucket: str = "artifacts"
+    ) -> None:
         try:
             from supabase import create_client
         except ImportError:
@@ -105,7 +112,9 @@ class SupabaseStorage:
         self._client = create_client(url, service_role_key)
         self._bucket = bucket
 
-    def upload(self, key: str, data: bytes, content_type: str = "application/octet-stream") -> str:
+    def upload(
+        self, key: str, data: bytes, content_type: str = "application/octet-stream"
+    ) -> str:
         self._client.storage.from_(self._bucket).upload(
             path=key,
             file=data,

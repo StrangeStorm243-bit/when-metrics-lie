@@ -81,13 +81,13 @@ async def compare_explain(request: CompareExplainRequest) -> CompareExplainRespo
             status_code=status.HTTP_501_NOT_IMPLEMENTED,
             detail=str(e),
         )
-    except requests.RequestException as e:
+    except requests.RequestException:
         # External API failure (network, timeout, etc.)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="LLM service unavailable",
         )
-    except Exception as e:
+    except Exception:
         # Other errors
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

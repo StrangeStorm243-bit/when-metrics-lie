@@ -10,6 +10,7 @@ When Clerk is NOT configured (local dev):
 
 This preserves Phase 4 local-dev behavior while enabling auth in hosted mode.
 """
+
 from __future__ import annotations
 
 from fastapi import Header, HTTPException, status

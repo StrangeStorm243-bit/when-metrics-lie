@@ -1,13 +1,11 @@
 """Tests for Phase 2.7.1 Decision Profiles."""
+
 import json
-from pathlib import Path
 
 import pytest
 
 from metrics_lie.profiles import (
     BALANCED,
-    PERFORMANCE_FIRST,
-    RISK_AVERSE,
     get_profile,
     get_profile_or_load,
     load_profile_from_dict,
@@ -33,7 +31,10 @@ def test_risk_averse_exists():
     assert profile.name == "risk_averse"
     assert profile.aggregation["mode"] == "worst_case"
     # Risk averse should have stricter thresholds
-    assert profile.thresholds["calibration_regression_ece"] < BALANCED.thresholds["calibration_regression_ece"]
+    assert (
+        profile.thresholds["calibration_regression_ece"]
+        < BALANCED.thresholds["calibration_regression_ece"]
+    )
     # Lower weight on metric gain
     assert profile.weights["metric_mean_delta"] < BALANCED.weights["metric_mean_delta"]
 
@@ -57,20 +58,28 @@ def test_invalid_percentile_raises_error():
             aggregation={"mode": "percentile", "scenario_scope": "all"},
             objectives={"primary": "metric_mean_delta", "secondary": []},
         )
-    
+
     # Percentile out of range (> 0.5)
     with pytest.raises(ValueError, match="percentile must be in"):
         DecisionProfile(
             name="invalid",
-            aggregation={"mode": "percentile", "percentile": 0.6, "scenario_scope": "all"},
+            aggregation={
+                "mode": "percentile",
+                "percentile": 0.6,
+                "scenario_scope": "all",
+            },
             objectives={"primary": "metric_mean_delta", "secondary": []},
         )
-    
+
     # Percentile <= 0
     with pytest.raises(ValueError, match="percentile must be in"):
         DecisionProfile(
             name="invalid",
-            aggregation={"mode": "percentile", "percentile": 0.0, "scenario_scope": "all"},
+            aggregation={
+                "mode": "percentile",
+                "percentile": 0.0,
+                "scenario_scope": "all",
+            },
             objectives={"primary": "metric_mean_delta", "secondary": []},
         )
 
@@ -83,7 +92,7 @@ def test_subset_without_scenario_list_raises_error():
             aggregation={"mode": "worst_case", "scenario_scope": "subset"},
             objectives={"primary": "metric_mean_delta", "secondary": []},
         )
-    
+
     with pytest.raises(ValueError, match="scenario_subset must be non-empty"):
         DecisionProfile(
             name="invalid",
@@ -118,7 +127,7 @@ def test_load_profile_from_dict():
             "subgroup_gap_delta": 0.2,
         },
     }
-    
+
     profile = load_profile_from_dict(profile_dict)
     assert isinstance(profile, DecisionProfile)
     assert profile.name == "test_profile"
@@ -134,7 +143,7 @@ def test_load_profile_from_dict_invalid():
         "aggregation": {"mode": "invalid_mode", "scenario_scope": "all"},
         "objectives": {"primary": "metric_mean_delta", "secondary": []},
     }
-    
+
     with pytest.raises(ValueError):
         load_profile_from_dict(invalid_dict)
 
@@ -152,10 +161,10 @@ def test_load_profile_from_json(tmp_path):
             "secondary": ["sensitivity_abs_delta"],
         },
     }
-    
+
     json_path = tmp_path / "profile.json"
     json_path.write_text(json.dumps(profile_dict), encoding="utf-8")
-    
+
     profile = load_profile_from_json(str(json_path))
     assert isinstance(profile, DecisionProfile)
     assert profile.name == "json_profile"
@@ -166,7 +175,7 @@ def test_get_profile_or_load_preset():
     """Test get_profile_or_load with preset name."""
     profile = get_profile_or_load("balanced")
     assert profile.name == "balanced"
-    
+
     profile = get_profile_or_load("risk_averse")
     assert profile.name == "risk_averse"
 
@@ -184,10 +193,10 @@ def test_get_profile_or_load_file(tmp_path):
             "secondary": [],
         },
     }
-    
+
     json_path = tmp_path / "custom_profile.json"
     json_path.write_text(json.dumps(profile_dict), encoding="utf-8")
-    
+
     profile = get_profile_or_load(str(json_path))
     assert profile.name == "file_profile"
 
@@ -196,7 +205,7 @@ def test_get_profile_or_load_not_found():
     """Test get_profile_or_load with invalid name/path."""
     with pytest.raises(ValueError, match="not found"):
         get_profile_or_load("nonexistent_profile")
-    
+
     with pytest.raises(ValueError, match="not found"):
         get_profile_or_load("/nonexistent/path.json")
 
@@ -251,7 +260,7 @@ def test_objectives_validation():
             aggregation={"mode": "worst_case", "scenario_scope": "all"},
             objectives={"primary": "invalid", "secondary": []},
         )
-    
+
     # Invalid secondary
     with pytest.raises(ValueError, match="secondary contains invalid value"):
         DecisionProfile(
@@ -259,4 +268,3 @@ def test_objectives_validation():
             aggregation={"mode": "worst_case", "scenario_scope": "all"},
             objectives={"primary": "metric_mean_delta", "secondary": ["invalid_obj"]},
         )
-

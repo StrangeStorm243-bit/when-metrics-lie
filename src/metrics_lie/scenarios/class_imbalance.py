@@ -39,7 +39,6 @@ class ClassImbalanceScenario:
             # Cannot shift if one class is missing
             return y_true, y_score
 
-        current_pos_rate = n_pos / n
         target_n_pos = int(round(self.target_pos_rate * n))
 
         # Determine which class to subsample
@@ -73,14 +72,19 @@ class ClassImbalanceScenario:
         return y_true[keep_mask], y_score[keep_mask]
 
     def describe(self) -> Dict[str, Any]:
-        return {"id": self.id, "target_pos_rate": self.target_pos_rate, "max_remove_frac": self.max_remove_frac}
+        return {
+            "id": self.id,
+            "target_pos_rate": self.target_pos_rate,
+            "max_remove_frac": self.max_remove_frac,
+        }
 
 
 def _factory(params: dict[str, Any]) -> ClassImbalanceScenario:
     target_pos_rate = float(params.get("target_pos_rate", 0.2))
     max_remove_frac = float(params.get("max_remove_frac", 0.8))
-    return ClassImbalanceScenario(target_pos_rate=target_pos_rate, max_remove_frac=max_remove_frac)
+    return ClassImbalanceScenario(
+        target_pos_rate=target_pos_rate, max_remove_frac=max_remove_frac
+    )
 
 
 register_scenario("class_imbalance", _factory)
-

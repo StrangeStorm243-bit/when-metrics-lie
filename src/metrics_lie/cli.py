@@ -2,35 +2,11 @@ from __future__ import annotations
 
 import argparse
 import json
-import uuid
 from pathlib import Path
 
-import numpy as np
 
-from metrics_lie.artifacts.plots import (
-    plot_calibration_curve,
-    plot_metric_distribution,
-    plot_subgroup_bars,
-    plot_threshold_curve,
-)
-from metrics_lie.datasets.loaders import load_binary_csv
-from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
-from metrics_lie.metrics.core import METRICS
-from metrics_lie.schema import Artifact, MetricSummary, ResultBundle, ScenarioResult
-from metrics_lie.spec import load_experiment_spec
-from metrics_lie.utils.paths import get_run_dir
-from metrics_lie.experiments.datasets import dataset_fingerprint_csv
-from metrics_lie.experiments.definition import ExperimentDefinition
-from metrics_lie.experiments.registry import upsert_experiment as upsert_experiment_jsonl, log_run as log_run_jsonl
-from metrics_lie.experiments.runs import RunRecord
 from metrics_lie.db.session import get_session
 from metrics_lie.db.crud import (
-    upsert_experiment,
-    insert_run,
-    update_run,
-    insert_artifacts,
-    get_experiment_spec_json,
-    get_experiment_id_for_run,
     enqueue_job_run_experiment,
     enqueue_job_rerun,
     list_experiments,
@@ -61,41 +37,63 @@ def main() -> None:
     parser.add_argument("--version", action="version", version=f"Spectra {__version__}")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_run = sub.add_parser("run", help="Run an experiment from a spec JSON (baseline + scenarios)")
+    p_run = sub.add_parser(
+        "run", help="Run an experiment from a spec JSON (baseline + scenarios)"
+    )
     p_run.add_argument("spec", type=str, help="Path to experiment spec JSON")
 
-    p_compare = sub.add_parser("compare", help="Compare two runs by run_id and print a JSON report")
+    p_compare = sub.add_parser(
+        "compare", help="Compare two runs by run_id and print a JSON report"
+    )
     p_compare.add_argument("run_a", type=str, help="Run ID A")
     p_compare.add_argument("run_b", type=str, help="Run ID B")
 
-    p_score = sub.add_parser("score", help="Score two runs using a decision profile and print a JSON report")
+    p_score = sub.add_parser(
+        "score", help="Score two runs using a decision profile and print a JSON report"
+    )
     p_score.add_argument("run_a", type=str, help="Run ID A")
     p_score.add_argument("run_b", type=str, help="Run ID B")
-    p_score.add_argument("--profile", type=str, default="balanced", help="Profile preset name or JSON file path (default: balanced)")
+    p_score.add_argument(
+        "--profile",
+        type=str,
+        default="balanced",
+        help="Profile preset name or JSON file path (default: balanced)",
+    )
 
-    p_rerun = sub.add_parser("rerun", help="Deterministically rerun an experiment by run_id using stored spec")
+    p_rerun = sub.add_parser(
+        "rerun",
+        help="Deterministically rerun an experiment by run_id using stored spec",
+    )
     p_rerun.add_argument("run_id", type=str, help="Existing run ID to rerun")
 
-    p_enqueue_run = sub.add_parser("enqueue-run", help="Enqueue a job to run an experiment")
+    p_enqueue_run = sub.add_parser(
+        "enqueue-run", help="Enqueue a job to run an experiment"
+    )
     p_enqueue_run.add_argument("experiment_id", type=str, help="Experiment ID to run")
 
-    p_enqueue_rerun = sub.add_parser("enqueue-rerun", help="Enqueue a job to rerun a run")
+    p_enqueue_rerun = sub.add_parser(
+        "enqueue-rerun", help="Enqueue a job to rerun a run"
+    )
     p_enqueue_rerun.add_argument("run_id", type=str, help="Run ID to rerun")
 
-    p_worker_once = sub.add_parser("worker-once", help="Process one job from the queue and exit")
+    sub.add_parser("worker-once", help="Process one job from the queue and exit")
 
     # Phase 2.6: Query commands
     p_experiments = sub.add_parser("experiments", help="Query experiments")
     exp_sub = p_experiments.add_subparsers(dest="exp_cmd", required=True)
     exp_list = exp_sub.add_parser("list", help="List experiments")
-    exp_list.add_argument("--limit", type=int, default=20, help="Maximum number of results")
+    exp_list.add_argument(
+        "--limit", type=int, default=20, help="Maximum number of results"
+    )
     exp_show = exp_sub.add_parser("show", help="Show experiment details")
     exp_show.add_argument("experiment_id", type=str, help="Experiment ID")
 
     p_runs = sub.add_parser("runs", help="Query runs")
     runs_sub = p_runs.add_subparsers(dest="runs_cmd", required=True)
     runs_list = runs_sub.add_parser("list", help="List runs")
-    runs_list.add_argument("--limit", type=int, default=50, help="Maximum number of results")
+    runs_list.add_argument(
+        "--limit", type=int, default=50, help="Maximum number of results"
+    )
     runs_list.add_argument("--status", type=str, help="Filter by status")
     runs_list.add_argument("--experiment", type=str, help="Filter by experiment_id")
     runs_show = runs_sub.add_parser("show", help="Show run details")
@@ -104,7 +102,9 @@ def main() -> None:
     p_jobs = sub.add_parser("jobs", help="Query jobs")
     jobs_sub = p_jobs.add_subparsers(dest="jobs_cmd", required=True)
     jobs_list = jobs_sub.add_parser("list", help="List jobs")
-    jobs_list.add_argument("--limit", type=int, default=50, help="Maximum number of results")
+    jobs_list.add_argument(
+        "--limit", type=int, default=50, help="Maximum number of results"
+    )
     jobs_list.add_argument("--status", type=str, help="Filter by status")
     jobs_show = jobs_sub.add_parser("show", help="Show job details")
     jobs_show.add_argument("job_id", type=str, help="Job ID")
@@ -121,7 +121,7 @@ def main() -> None:
         profile = get_profile_or_load(args.profile)
         comps = extract_components(report, profile)
         scorecard = build_scorecard(comps, profile)
-        
+
         output = {
             "run_a": args.run_a,
             "run_b": args.run_b,
@@ -157,22 +157,31 @@ def main() -> None:
                 else:
                     rows = []
                     for exp in experiments:
-                        rows.append([
-                            exp.experiment_id,
-                            exp.metric,
-                            str(exp.n_trials),
-                            str(exp.seed),
-                            short(exp.dataset_fingerprint, 10),
-                            exp.created_at[:19] if len(exp.created_at) > 19 else exp.created_at,
-                        ])
-                    print(format_table(rows, [
-                        "experiment_id",
-                        "metric",
-                        "n_trials",
-                        "seed",
-                        "dataset_fp",
-                        "created_at",
-                    ]))
+                        rows.append(
+                            [
+                                exp.experiment_id,
+                                exp.metric,
+                                str(exp.n_trials),
+                                str(exp.seed),
+                                short(exp.dataset_fingerprint, 10),
+                                exp.created_at[:19]
+                                if len(exp.created_at) > 19
+                                else exp.created_at,
+                            ]
+                        )
+                    print(
+                        format_table(
+                            rows,
+                            [
+                                "experiment_id",
+                                "metric",
+                                "n_trials",
+                                "seed",
+                                "dataset_fp",
+                                "created_at",
+                            ],
+                        )
+                    )
         elif args.exp_cmd == "show":
             with get_session() as session:
                 try:
@@ -205,22 +214,31 @@ def main() -> None:
                 else:
                     rows = []
                     for r in runs:
-                        rows.append([
-                            r.run_id,
-                            r.experiment_id,
-                            r.status,
-                            r.created_at[:19] if len(r.created_at) > 19 else r.created_at,
-                            r.rerun_of if r.rerun_of else "-",
-                            r.results_path,
-                        ])
-                    print(format_table(rows, [
-                        "run_id",
-                        "experiment_id",
-                        "status",
-                        "created_at",
-                        "rerun_of",
-                        "results_path",
-                    ]))
+                        rows.append(
+                            [
+                                r.run_id,
+                                r.experiment_id,
+                                r.status,
+                                r.created_at[:19]
+                                if len(r.created_at) > 19
+                                else r.created_at,
+                                r.rerun_of if r.rerun_of else "-",
+                                r.results_path,
+                            ]
+                        )
+                    print(
+                        format_table(
+                            rows,
+                            [
+                                "run_id",
+                                "experiment_id",
+                                "status",
+                                "created_at",
+                                "rerun_of",
+                                "results_path",
+                            ],
+                        )
+                    )
         elif args.runs_cmd == "show":
             with get_session() as session:
                 try:
@@ -229,14 +247,18 @@ def main() -> None:
                     print(f"experiment_id: {run_row.experiment_id}")
                     print(f"status: {run_row.status}")
                     print(f"created_at: {run_row.created_at}")
-                    print(f"started_at: {run_row.started_at if run_row.started_at else '-'}")
-                    print(f"finished_at: {run_row.finished_at if run_row.finished_at else '-'}")
+                    print(
+                        f"started_at: {run_row.started_at if run_row.started_at else '-'}"
+                    )
+                    print(
+                        f"finished_at: {run_row.finished_at if run_row.finished_at else '-'}"
+                    )
                     print(f"rerun_of: {run_row.rerun_of if run_row.rerun_of else '-'}")
                     print(f"results_path: {run_row.results_path}")
                     print(f"artifacts_dir: {run_row.artifacts_dir}")
                     if run_row.error:
                         print(f"error: {run_row.error}")
-                    
+
                     artifacts = list_artifacts_for_run(session, args.run_id)
                     print("\nArtifacts:")
                     if artifacts:
@@ -255,24 +277,37 @@ def main() -> None:
                 else:
                     rows = []
                     for j in jobs:
-                        rows.append([
-                            j.job_id,
-                            j.kind,
-                            j.status,
-                            j.created_at[:19] if len(j.created_at) > 19 else j.created_at,
-                            j.started_at[:19] if j.started_at and len(j.started_at) > 19 else (j.started_at if j.started_at else "-"),
-                            j.finished_at[:19] if j.finished_at and len(j.finished_at) > 19 else (j.finished_at if j.finished_at else "-"),
-                            j.result_run_id if j.result_run_id else "-",
-                        ])
-                    print(format_table(rows, [
-                        "job_id",
-                        "kind",
-                        "status",
-                        "created_at",
-                        "started_at",
-                        "finished_at",
-                        "result_run_id",
-                    ]))
+                        rows.append(
+                            [
+                                j.job_id,
+                                j.kind,
+                                j.status,
+                                j.created_at[:19]
+                                if len(j.created_at) > 19
+                                else j.created_at,
+                                j.started_at[:19]
+                                if j.started_at and len(j.started_at) > 19
+                                else (j.started_at if j.started_at else "-"),
+                                j.finished_at[:19]
+                                if j.finished_at and len(j.finished_at) > 19
+                                else (j.finished_at if j.finished_at else "-"),
+                                j.result_run_id if j.result_run_id else "-",
+                            ]
+                        )
+                    print(
+                        format_table(
+                            rows,
+                            [
+                                "job_id",
+                                "kind",
+                                "status",
+                                "created_at",
+                                "started_at",
+                                "finished_at",
+                                "result_run_id",
+                            ],
+                        )
+                    )
         elif args.jobs_cmd == "show":
             with get_session() as session:
                 try:
@@ -287,7 +322,9 @@ def main() -> None:
                     print(f"created_at: {job.created_at}")
                     print(f"started_at: {job.started_at if job.started_at else '-'}")
                     print(f"finished_at: {job.finished_at if job.finished_at else '-'}")
-                    print(f"result_run_id: {job.result_run_id if job.result_run_id else '-'}")
+                    print(
+                        f"result_run_id: {job.result_run_id if job.result_run_id else '-'}"
+                    )
                     if job.error:
                         print(f"error: {job.error}")
                 except ValueError as e:
@@ -296,4 +333,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

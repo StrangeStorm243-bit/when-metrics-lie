@@ -12,5 +12,3 @@ def dataset_fingerprint_csv(path: str) -> str:
     p = Path(path)
     data = p.read_bytes()
     return sha256_hex(data)
-
-

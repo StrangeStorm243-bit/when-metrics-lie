@@ -21,11 +21,15 @@ class ExperimentDefinition(BaseModel):
     dataset: Dict[str, Any]
     scenarios: List[Dict[str, Any]]
 
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
+    created_at: str = Field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat()
+    )
     spec_schema_version: Optional[str] = None
 
     @classmethod
-    def from_spec(cls, spec: ExperimentSpec, dataset_fingerprint: str) -> "ExperimentDefinition":
+    def from_spec(
+        cls, spec: ExperimentSpec, dataset_fingerprint: str
+    ) -> "ExperimentDefinition":
         dataset_payload = {
             "fingerprint": dataset_fingerprint,
             "y_true_col": spec.dataset.y_true_col,
@@ -65,5 +69,3 @@ class ExperimentDefinition(BaseModel):
             dataset=dataset_payload,
             scenarios=scenarios_payload,
         )
-
-

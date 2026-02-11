@@ -64,4 +64,3 @@ class LazyDemoModel(BaseEstimator):
 
 # Object for import-path usage: "examples.demo_model:MODEL"
 MODEL = LazyDemoModel()
-

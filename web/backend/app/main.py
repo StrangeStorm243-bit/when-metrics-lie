@@ -1,4 +1,5 @@
 """FastAPI application for Spectra web UI."""
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 

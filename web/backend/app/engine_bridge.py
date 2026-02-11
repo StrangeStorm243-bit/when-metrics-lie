@@ -1,10 +1,10 @@
 """Bridge module to call Spectra core engine functions directly."""
-from datetime import datetime, timezone
+
+from datetime import datetime
 from pathlib import Path
 
 from metrics_lie.execution import run_from_spec_dict
 from metrics_lie.schema import ResultBundle
-from metrics_lie.spec import ExperimentSpec, DatasetSpec, ScenarioSpec
 from metrics_lie.utils.paths import get_run_dir
 
 from .contracts import (
@@ -38,6 +38,7 @@ def ensure_core_db_initialized() -> None:
 
     try:
         import os
+
         os.chdir(repo_root)
 
         # IMPORTANT: import AFTER changing CWD so engine binds correctly
@@ -48,7 +49,6 @@ def ensure_core_db_initialized() -> None:
         os.chdir(original_cwd)
 
 
-
 def _get_default_scenarios(stress_suite_id: str) -> list[dict]:
     """Map stress_suite_id to default scenario configurations."""
     # For Phase 3.2, use a standard set of scenarios
@@ -56,23 +56,26 @@ def _get_default_scenarios(stress_suite_id: str) -> list[dict]:
     return [
         {"id": "label_noise", "params": {"p": 0.1}},
         {"id": "score_noise", "params": {"sigma": 0.05}},
-        {"id": "class_imbalance", "params": {"target_pos_rate": 0.2, "max_remove_frac": 0.8}},
+        {
+            "id": "class_imbalance",
+            "params": {"target_pos_rate": 0.2, "max_remove_frac": 0.8},
+        },
     ]
 
 
 def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
     """
     Determine dataset path using config or candidate fallbacks.
-    
+
     Returns:
         Path to dataset CSV file (absolute, resolved)
-    
+
     Raises:
         ValueError: If no dataset file can be found
     """
     repo_root = _find_repo_root()
     searched_locations = []
-    
+
     # Check config first
     if "dataset_path" in create_req.config:
         config_path = Path(create_req.config["dataset_path"])
@@ -80,7 +83,7 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
             dataset_path = config_path.resolve()
         else:
             dataset_path = (repo_root / config_path).resolve()
-        
+
         searched_locations.append(f"config['dataset_path']: {dataset_path}")
         if not dataset_path.exists():
             raise ValueError(
@@ -94,7 +97,7 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
             )
         print(f"[DEBUG] Using dataset path: {dataset_path}")
         return dataset_path
-    
+
     # Try candidate paths in order (ONLY if they exist)
     candidates = [
         "data/demo_binary.csv",
@@ -102,13 +105,13 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
         "data/sample.csv",
         "data/example.csv",
     ]
-    
+
     for candidate in candidates:
         candidate_path = (repo_root / candidate).resolve()
         searched_locations.append(str(candidate_path))
         if candidate_path.exists() and candidate_path.is_file():
             return candidate_path
-    
+
     # Try any CSV in data/ directory (deterministically sorted)
     data_dir = repo_root / "data"
     if data_dir.exists() and data_dir.is_dir():
@@ -118,7 +121,7 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
             return csv_files[0].resolve()
     else:
         searched_locations.append(f"{data_dir} (directory does not exist)")
-    
+
     # Broaden search: any CSV under repo_root, excluding venv/node_modules/.git/runs/.spectra_ui
     exclude_dirs = {".venv", "venv", "node_modules", ".git", "runs", ".spectra_ui"}
     all_csvs = []
@@ -126,30 +129,35 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
         # Check if any parent directory is in exclude list
         if not any(excluded in csv_file.parts for excluded in exclude_dirs):
             all_csvs.append(csv_file)
-    
+
     if all_csvs:
         # Deterministically sort and pick first
         sorted_csvs = sorted(all_csvs, key=lambda p: str(p))
-        searched_locations.append(f"repo_root/**/*.csv (found {len(sorted_csvs)} files, excluding venv/node_modules/.git/runs/.spectra_ui)")
+        searched_locations.append(
+            f"repo_root/**/*.csv (found {len(sorted_csvs)} files, excluding venv/node_modules/.git/runs/.spectra_ui)"
+        )
         return sorted_csvs[0].resolve()
     else:
-        searched_locations.append(f"repo_root/**/*.csv (none found, excluding venv/node_modules/.git/runs/.spectra_ui)")
-    
+        searched_locations.append(
+            "repo_root/**/*.csv (none found, excluding venv/node_modules/.git/runs/.spectra_ui)"
+        )
+
     # None found - raise clear error
     raise ValueError(
-        f"No dataset file found. Searched locations:\n  " + "\n  ".join(searched_locations) +
-        f"\n\nTo fix: Set create_req.config['dataset_path'] to a valid CSV file path "
-        f"(relative to repo root or absolute)."
+        "No dataset file found. Searched locations:\n  "
+        + "\n  ".join(searched_locations)
+        + "\n\nTo fix: Set create_req.config['dataset_path'] to a valid CSV file path "
+        "(relative to repo root or absolute)."
     )
 
 
 def _get_default_dataset(create_req: ExperimentCreateRequest) -> dict:
     """Get default dataset configuration."""
     dataset_path = _get_dataset_path(create_req)
-    
+
     # ALWAYS use absolute path in spec dict
     path_str = str(dataset_path.resolve())
-    
+
     dataset_dict = {
         "source": "csv",
         "path": path_str,
@@ -241,7 +249,10 @@ def _bundle_to_result_summary(
 
 
 def run_experiment(
-    create_req: ExperimentCreateRequest, experiment_id: str, run_id: str, seed: int | None = None
+    create_req: ExperimentCreateRequest,
+    experiment_id: str,
+    run_id: str,
+    seed: int | None = None,
 ) -> ResultSummary:
     """
     Run an experiment using Spectra core engine.
@@ -278,10 +289,12 @@ def run_experiment(
 
     # Ensure core DB is initialized before calling engine
     ensure_core_db_initialized()
-    
+
     # Call core engine
     spec_path_for_notes = f"<ui_experiment:{experiment_id}:{run_id}>"
-    returned_run_id = run_from_spec_dict(spec_dict, spec_path_for_notes=spec_path_for_notes)
+    returned_run_id = run_from_spec_dict(
+        spec_dict, spec_path_for_notes=spec_path_for_notes
+    )
 
     # Read ResultBundle from disk
     run_paths = get_run_dir(returned_run_id)
@@ -290,4 +303,3 @@ def run_experiment(
 
     # Convert to ResultSummary
     return _bundle_to_result_summary(bundle, experiment_id, run_id)
-

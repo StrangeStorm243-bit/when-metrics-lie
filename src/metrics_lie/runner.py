@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List
+from typing import Callable, Dict
 
 import numpy as np
 
@@ -96,7 +96,11 @@ def run_scenarios(
                 gaming_trial_data.append((y_p.copy(), s_p.copy()))
 
             # Subgroup diagnostics (only if subgroup provided and lengths align)
-            if subgroup is not None and len(y_p) == len(y_true) and len(subgroup) == len(y_p):
+            if (
+                subgroup is not None
+                and len(y_p) == len(y_true)
+                and len(subgroup) == len(y_p)
+            ):
                 subgroup_p = subgroup
                 if subgroup_p_aligned is None:
                     subgroup_p_aligned = subgroup_p
@@ -106,7 +110,9 @@ def run_scenarios(
                     s_g = s_p[group_mask]
                     if len(y_g) > 0:
                         # Metric per group
-                        metric_val = safe_metric_for_group(metric_name, metric_fn, y_g, s_g)
+                        metric_val = safe_metric_for_group(
+                            metric_name, metric_fn, y_g, s_g
+                        )
                         if metric_val is not None:
                             if group_key not in subgroup_metric_vals:
                                 subgroup_metric_vals[group_key] = []
@@ -135,7 +141,9 @@ def run_scenarios(
             subgroup_metric_summaries: Dict[str, Dict] = {}
             for group_key, metric_list in subgroup_metric_vals.items():
                 if len(metric_list) > 0:
-                    subgroup_metric_summaries[group_key] = summarize(metric_list).model_dump()
+                    subgroup_metric_summaries[group_key] = summarize(
+                        metric_list
+                    ).model_dump()
             if subgroup_metric_summaries:
                 diag["subgroup_metric"] = subgroup_metric_summaries
 
@@ -155,7 +163,9 @@ def run_scenarios(
                 diag["subgroup_ece"] = subgroup_ece_summaries
 
             # Subgroup gap analysis
-            group_sizes = compute_group_sizes(subgroup_p_aligned if subgroup_p_aligned is not None else subgroup)
+            group_sizes = compute_group_sizes(
+                subgroup_p_aligned if subgroup_p_aligned is not None else subgroup
+            )
             group_means: Dict[str, float] = {}
             for group_key, metric_list in subgroup_metric_vals.items():
                 if len(metric_list) > 0:
@@ -185,12 +195,17 @@ def run_scenarios(
             if gaming_trial_data and ctx.surface_type == "probability":
                 # Use first trial as representative
                 y_rep, s_rep = gaming_trial_data[0]
-                y_pred_opt = (s_rep >= mean_opt_thresh).astype(int)
                 downstream["brier"] = float(brier_score(y_rep, s_rep))
-                downstream["ece"] = float(expected_calibration_error(y_rep, s_rep, n_bins=10))
+                downstream["ece"] = float(
+                    expected_calibration_error(y_rep, s_rep, n_bins=10)
+                )
 
                 # Subgroup gap at optimized threshold (if subgroup exists)
-                if subgroup is not None and len(y_rep) == len(y_true) and len(subgroup) == len(y_rep):
+                if (
+                    subgroup is not None
+                    and len(y_rep) == len(y_true)
+                    and len(subgroup) == len(y_rep)
+                ):
                     groups = group_indices(subgroup)
                     group_accs_opt: Dict[str, float] = {}
                     for group_key, group_mask in groups.items():

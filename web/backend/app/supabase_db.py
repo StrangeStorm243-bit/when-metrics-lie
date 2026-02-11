@@ -6,10 +6,12 @@ via the PostgREST API using the service role key.
 All queries explicitly filter by owner_id to enforce user scoping at the
 application layer (in addition to RLS policies on the database).
 """
+
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from typing import Any
+import uuid
 
 
 def _get_client():

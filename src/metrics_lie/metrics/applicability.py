@@ -50,7 +50,12 @@ class MetricResolver:
 
         for req in self._requirements:
             if surface_type not in req.requires_surface:
-                excluded.append((req.metric_id, f"requires surface {sorted([s.value for s in req.requires_surface])}"))
+                excluded.append(
+                    (
+                        req.metric_id,
+                        f"requires surface {sorted([s.value for s in req.requires_surface])}",
+                    )
+                )
                 continue
             if req.requires_both_classes and (
                 dataset_props.n_positive == 0 or dataset_props.n_negative == 0
@@ -58,7 +63,9 @@ class MetricResolver:
                 excluded.append((req.metric_id, "requires both classes"))
                 continue
             if dataset_props.n_samples < req.min_samples:
-                excluded.append((req.metric_id, f"requires at least {req.min_samples} samples"))
+                excluded.append(
+                    (req.metric_id, f"requires at least {req.min_samples} samples")
+                )
                 continue
             metrics.append(req.metric_id)
 

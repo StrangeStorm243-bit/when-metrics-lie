@@ -105,7 +105,7 @@ PROFILES: dict[str, DecisionProfile] = {
 def get_profile(name: str) -> DecisionProfile:
     """
     Get a built-in profile by name.
-    
+
     Raises:
         ValueError: If profile name is not found.
     """
@@ -114,4 +114,3 @@ def get_profile(name: str) -> DecisionProfile:
             f"Profile '{name}' not found. Available profiles: {sorted(PROFILES.keys())}"
         )
     return PROFILES[name]
-

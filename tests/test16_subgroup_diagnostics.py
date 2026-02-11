@@ -15,4 +15,3 @@ def test_subgroup_helpers():
     assert sizes["A"] == 3
     assert sizes["B"] == 2
     assert set(sizes.keys()) == {"A", "B"}
-

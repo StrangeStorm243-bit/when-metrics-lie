@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 import json
 import hashlib
 from typing import Any
@@ -23,7 +23,10 @@ def _normalize_for_json(obj: Any) -> Any:
             pass
 
     if isinstance(obj, Mapping):
-        return {str(k): _normalize_for_json(v) for k, v in sorted(obj.items(), key=lambda kv: kv[0])}
+        return {
+            str(k): _normalize_for_json(v)
+            for k, v in sorted(obj.items(), key=lambda kv: kv[0])
+        }
 
     if isinstance(obj, (list, tuple)):
         return [_normalize_for_json(v) for v in obj]
@@ -58,5 +61,3 @@ def short_id(prefix: str, hex_digest: str, n: int = 10) -> str:
     Return a short identifier like 'exp_ABCDEF1234' from a hex digest.
     """
     return f"{prefix}_{hex_digest[:n].upper()}"
-
-

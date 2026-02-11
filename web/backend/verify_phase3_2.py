@@ -1,7 +1,6 @@
 """Verification script for Phase 3.2 endpoints."""
-import json
+
 import sys
-from pathlib import Path
 
 import requests
 
@@ -38,7 +37,9 @@ def main():
     # 3. Run experiment
     print("\n3. Running experiment...")
     run_req = {"seed": 42}
-    response = requests.post(f"{BASE_URL}/experiments/{experiment_id}/run", json=run_req)
+    response = requests.post(
+        f"{BASE_URL}/experiments/{experiment_id}/run", json=run_req
+    )
     response.raise_for_status()
     run_result = response.json()
     run_id = run_result["run_id"]
@@ -65,7 +66,9 @@ def main():
     if results["scenario_results"]:
         print("\n   Scenario Results:")
         for scenario in results["scenario_results"]:
-            print(f"     - {scenario['scenario_name']}: delta={scenario['delta']:.6f}, score={scenario['score']:.6f}")
+            print(
+                f"     - {scenario['scenario_name']}: delta={scenario['delta']:.6f}, score={scenario['score']:.6f}"
+            )
 
     # Print flags
     if results["flags"]:
@@ -91,4 +94,3 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"ERROR: {e}")
         sys.exit(1)
-

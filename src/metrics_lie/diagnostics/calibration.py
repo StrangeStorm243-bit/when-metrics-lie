@@ -13,7 +13,9 @@ def brier_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(np.mean((p - y) ** 2))
 
 
-def expected_calibration_error(y_true: np.ndarray, y_score: np.ndarray, n_bins: int = 10) -> float:
+def expected_calibration_error(
+    y_true: np.ndarray, y_score: np.ndarray, n_bins: int = 10
+) -> float:
     """
     Expected Calibration Error (ECE) using equal-width bins over [0, 1].
     """
@@ -38,5 +40,3 @@ def expected_calibration_error(y_true: np.ndarray, y_score: np.ndarray, n_bins: 
         acc = float(y[mask].mean())
         ece += (mask.sum() / n) * abs(acc - conf)
     return float(ece)
-
-

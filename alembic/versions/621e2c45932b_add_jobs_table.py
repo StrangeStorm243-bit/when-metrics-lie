@@ -5,6 +5,7 @@ Revises: 2a4add_spec_json_and_rerun_of
 Create Date: 2026-01-29 10:15:34.544852
 
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -12,8 +13,8 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '621e2c45932b'
-down_revision: Union[str, Sequence[str], None] = '2a4add_spec_json_and_rerun_of'
+revision: str = "621e2c45932b"
+down_revision: Union[str, Sequence[str], None] = "2a4add_spec_json_and_rerun_of"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

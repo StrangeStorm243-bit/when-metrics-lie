@@ -49,5 +49,3 @@ def upsert_experiment(defn: ExperimentDefinition) -> None:
 
 def log_run(run_record: RunRecord) -> None:
     append_jsonl(RUNS_FILE, run_record.__dict__)
-
-

@@ -51,4 +51,3 @@ def test_plot_functions_smoke():
             out_path=tmp_path / "test_subgroup.png",
         )
         assert (tmp_path / "test_subgroup.png").exists()
-

@@ -4,6 +4,7 @@ All configuration is read from environment variables.
 When no cloud env vars are set, the system defaults to local filesystem behavior,
 preserving Phase 4 behavior exactly.
 """
+
 from __future__ import annotations
 
 import os

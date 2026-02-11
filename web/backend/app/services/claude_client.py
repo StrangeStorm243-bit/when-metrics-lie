@@ -62,4 +62,3 @@ def get_claude_response(
         if isinstance(content_item, dict) and "text" in content_item:
             return content_item["text"]
     raise ValueError("Unexpected response format from Claude API")
-

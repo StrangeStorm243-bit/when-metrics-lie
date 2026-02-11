@@ -28,7 +28,9 @@ def metric_logloss(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(log_loss(y_true, y_score))
 
 
-def metric_accuracy(y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5) -> float:
+def metric_accuracy(
+    y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5
+) -> float:
     y_pred = (y_score >= threshold).astype(int)
     return float(accuracy_score(y_true, y_pred))
 
@@ -38,12 +40,16 @@ def metric_f1(y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5) -
     return float(f1_score(y_true, y_pred, zero_division=0))
 
 
-def metric_precision(y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5) -> float:
+def metric_precision(
+    y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5
+) -> float:
     y_pred = (y_score >= threshold).astype(int)
     return float(precision_score(y_true, y_pred, zero_division=0))
 
 
-def metric_recall(y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5) -> float:
+def metric_recall(
+    y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5
+) -> float:
     y_pred = (y_score >= threshold).astype(int)
     return float(recall_score(y_true, y_pred, zero_division=0))
 
@@ -52,7 +58,9 @@ def metric_pr_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(average_precision_score(y_true, y_score))
 
 
-def metric_matthews_corrcoef(y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5) -> float:
+def metric_matthews_corrcoef(
+    y_true: np.ndarray, y_score: np.ndarray, threshold: float = 0.5
+) -> float:
     y_pred = (y_score >= threshold).astype(int)
     return float(matthews_corrcoef(y_true, y_pred))
 

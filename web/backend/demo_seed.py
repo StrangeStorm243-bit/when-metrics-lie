@@ -4,6 +4,7 @@
 This script creates an experiment using the first available metric and stress suite preset,
 runs it, and prints the experiment ID and frontend URL.
 """
+
 import sys
 from pathlib import Path
 
@@ -32,7 +33,7 @@ def main():
     metric = METRIC_PRESETS[0]
     stress_suite = STRESS_SUITE_PRESETS[0]
 
-    print(f"Creating demo experiment with:")
+    print("Creating demo experiment with:")
     print(f"  Metric: {metric['name']} ({metric['id']})")
     print(f"  Stress Suite: {stress_suite['name']} ({stress_suite['id']})")
     print()
@@ -82,7 +83,7 @@ def main():
         summary.status = "completed"
         save_experiment(experiment_id, create_req, summary)
 
-        print(f"✓ Experiment completed successfully")
+        print("✓ Experiment completed successfully")
         print()
         print("=" * 60)
         print(f"Experiment ID: {experiment_id}")
@@ -104,4 +105,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

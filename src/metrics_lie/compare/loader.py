@@ -26,5 +26,3 @@ def scenario_map(bundle: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
         if isinstance(sid, str):
             out[sid] = s
     return out
-
-

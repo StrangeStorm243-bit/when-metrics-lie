@@ -7,6 +7,7 @@ Dispatches between two backends based on SPECTRA_STORAGE_BACKEND env var:
 When running locally, the owner_id parameter is accepted but ignored,
 preserving Phase 4 behavior exactly.
 """
+
 from __future__ import annotations
 
 import json
@@ -21,14 +22,17 @@ from .contracts import ExperimentCreateRequest, ExperimentSummary, ResultSummary
 # Configuration helper
 # ---------------------------------------------------------------------------
 
+
 def _is_hosted() -> bool:
     from .config import get_settings
+
     return get_settings().is_hosted
 
 
 # ---------------------------------------------------------------------------
 # Local filesystem implementation (Phase 4 behavior, unchanged)
 # ---------------------------------------------------------------------------
+
 
 def _get_experiments_dir() -> Path:
     """Get the experiments persistence directory."""
@@ -46,7 +50,9 @@ def _get_experiment_dir(experiment_id: str) -> Path:
     return exp_dir
 
 
-def _save_experiment_local(experiment_id: str, create_req: ExperimentCreateRequest, summary: ExperimentSummary) -> None:
+def _save_experiment_local(
+    experiment_id: str, create_req: ExperimentCreateRequest, summary: ExperimentSummary
+) -> None:
     exp_dir = _get_experiment_dir(experiment_id)
     experiment_file = exp_dir / "experiment.json"
     data = {
@@ -56,7 +62,9 @@ def _save_experiment_local(experiment_id: str, create_req: ExperimentCreateReque
     experiment_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
-def _load_experiment_local(experiment_id: str) -> tuple[ExperimentCreateRequest, ExperimentSummary]:
+def _load_experiment_local(
+    experiment_id: str,
+) -> tuple[ExperimentCreateRequest, ExperimentSummary]:
     exp_dir = _get_experiment_dir(experiment_id)
     experiment_file = exp_dir / "experiment.json"
     if not experiment_file.exists():
@@ -130,10 +138,14 @@ def _list_runs_local(experiment_id: str) -> list[dict]:
         try:
             data = json.loads(result_file.read_text(encoding="utf-8"))
             result = ResultSummary.model_validate(data)
-            runs.append({
-                "run_id": run_id,
-                "generated_at": result.generated_at.isoformat() if result.generated_at else None,
-            })
+            runs.append(
+                {
+                    "run_id": run_id,
+                    "generated_at": result.generated_at.isoformat()
+                    if result.generated_at
+                    else None,
+                }
+            )
         except Exception:
             continue
     runs_with_dates = [r for r in runs if r["generated_at"] is not None]
@@ -151,7 +163,9 @@ def _load_result_for_run_local(experiment_id: str, run_id: str) -> ResultSummary
     run_dir = runs_dir / run_id
     result_file = run_dir / "result.json"
     if not result_file.exists():
-        raise FileNotFoundError(f"Run {run_id} not found for experiment {experiment_id}")
+        raise FileNotFoundError(
+            f"Run {run_id} not found for experiment {experiment_id}"
+        )
     try:
         data = json.loads(result_file.read_text(encoding="utf-8"))
         return ResultSummary.model_validate(data)
@@ -162,6 +176,7 @@ def _load_result_for_run_local(experiment_id: str, run_id: str) -> ResultSummary
 # ---------------------------------------------------------------------------
 # Hosted (Supabase) implementation
 # ---------------------------------------------------------------------------
+
 
 def _save_experiment_hosted(
     experiment_id: str,
@@ -178,26 +193,37 @@ def _save_experiment_hosted(
 
     existing = supabase_db.get_experiment(experiment_id, owner_id)
     if existing:
-        supabase_db.update_experiment(experiment_id, owner_id, {
-            "name": summary.name,
-            "config": config,
-        })
+        supabase_db.update_experiment(
+            experiment_id,
+            owner_id,
+            {
+                "name": summary.name,
+                "config": config,
+            },
+        )
     else:
         from supabase import create_client
         from .config import get_settings
+
         settings = get_settings()
-        client = create_client(settings.supabase_url, settings.supabase_service_role_key)
+        client = create_client(
+            settings.supabase_url, settings.supabase_service_role_key
+        )
         row = {
             "id": experiment_id,
             "owner_id": owner_id,
             "name": create_req.name,
-            "created_at": summary.created_at.isoformat() if summary.created_at else datetime.now(timezone.utc).isoformat(),
+            "created_at": summary.created_at.isoformat()
+            if summary.created_at
+            else datetime.now(timezone.utc).isoformat(),
             "config": config,
         }
         client.table("experiments").insert(row).execute()
 
 
-def _load_experiment_hosted(experiment_id: str, owner_id: str) -> tuple[ExperimentCreateRequest, ExperimentSummary]:
+def _load_experiment_hosted(
+    experiment_id: str, owner_id: str
+) -> tuple[ExperimentCreateRequest, ExperimentSummary]:
     from . import supabase_db
 
     row = supabase_db.get_experiment(experiment_id, owner_id)
@@ -205,7 +231,9 @@ def _load_experiment_hosted(experiment_id: str, owner_id: str) -> tuple[Experime
         raise FileNotFoundError(f"Experiment {experiment_id} not found")
 
     config = row.get("config", {})
-    create_req = ExperimentCreateRequest.model_validate(config.get("create_request", {}))
+    create_req = ExperimentCreateRequest.model_validate(
+        config.get("create_request", {})
+    )
     summary = ExperimentSummary.model_validate(config.get("summary", {}))
     return create_req, summary
 
@@ -238,14 +266,18 @@ def _save_result_hosted(
     backend = get_storage_backend()
     result_json = result.model_dump_json(indent=2)
     results_key = storage_key(owner_id, experiment_id, run_id, "results.json")
-    backend.upload(results_key, result_json.encode("utf-8"), content_type="application/json")
+    backend.upload(
+        results_key, result_json.encode("utf-8"), content_type="application/json"
+    )
 
     # Extract analysis artifacts key if present
     analysis_key = None
     if result.analysis_artifacts:
         analysis_key = storage_key(owner_id, experiment_id, run_id, "analysis.json")
         analysis_json = json.dumps(result.analysis_artifacts, indent=2)
-        backend.upload(analysis_key, analysis_json.encode("utf-8"), content_type="application/json")
+        backend.upload(
+            analysis_key, analysis_json.encode("utf-8"), content_type="application/json"
+        )
 
     supabase_db.create_run(
         run_id=run_id,
@@ -257,7 +289,9 @@ def _save_result_hosted(
     )
 
 
-def _load_latest_result_hosted(experiment_id: str, owner_id: str) -> Optional[ResultSummary]:
+def _load_latest_result_hosted(
+    experiment_id: str, owner_id: str
+) -> Optional[ResultSummary]:
     from . import supabase_db
     from .storage_backend import get_storage_backend
 
@@ -290,7 +324,9 @@ def _list_runs_hosted(experiment_id: str, owner_id: str) -> list[dict]:
     ]
 
 
-def _load_result_for_run_hosted(experiment_id: str, run_id: str, owner_id: str) -> ResultSummary:
+def _load_result_for_run_hosted(
+    experiment_id: str, run_id: str, owner_id: str
+) -> ResultSummary:
     from . import supabase_db
     from .storage_backend import get_storage_backend
 
@@ -313,6 +349,7 @@ def _load_result_for_run_hosted(experiment_id: str, run_id: str, owner_id: str) 
 # ---------------------------------------------------------------------------
 # Public dispatch functions
 # ---------------------------------------------------------------------------
+
 
 def save_experiment(
     experiment_id: str,

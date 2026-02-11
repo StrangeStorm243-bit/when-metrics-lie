@@ -1,6 +1,9 @@
 import numpy as np
 
-from metrics_lie.diagnostics.metric_gaming import accuracy_at_threshold, find_optimal_threshold
+from metrics_lie.diagnostics.metric_gaming import (
+    accuracy_at_threshold,
+    find_optimal_threshold,
+)
 
 
 def test_threshold_optimization_increases_accuracy():
@@ -17,4 +20,3 @@ def test_threshold_optimization_increases_accuracy():
     assert opt_acc >= baseline_acc
     # In this case, optimal should be better (threshold around 0.5-0.6 works better)
     assert opt_acc > baseline_acc or opt_thresh != 0.5
-

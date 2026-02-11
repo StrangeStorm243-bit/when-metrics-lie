@@ -4,6 +4,7 @@ Revision ID: 2a4add_spec_json_and_rerun_of
 Revises: 1e8f3e64b284
 Create Date: 2026-01-29 00:00:00.000000
 """
+
 from typing import Sequence, Union
 
 from alembic import op
@@ -36,5 +37,3 @@ def downgrade() -> None:
     """Downgrade schema by removing spec_json and rerun_of."""
     op.drop_column("runs", "rerun_of")
     op.drop_column("experiments", "spec_json")
-
-

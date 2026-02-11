@@ -69,7 +69,9 @@ def validate_surface(
 ) -> np.ndarray:
     arr = np.asarray(values)
     if arr.ndim not in (1, 2):
-        raise SurfaceValidationError(f"surface values must be 1d or 2d. Got shape {arr.shape}")
+        raise SurfaceValidationError(
+            f"surface values must be 1d or 2d. Got shape {arr.shape}"
+        )
     if arr.shape[0] != expected_n_samples:
         raise SurfaceValidationError(
             f"surface length mismatch: expected {expected_n_samples}, got {arr.shape[0]}"
@@ -97,9 +99,7 @@ def validate_surface(
             arr = np.clip(arr, 0.0, 1.0)
     elif surface_type == SurfaceType.LABEL:
         if arr.ndim != 1:
-            raise SurfaceValidationError(
-                f"label surface must be 1d. Got {arr.shape}"
-            )
+            raise SurfaceValidationError(f"label surface must be 1d. Got {arr.shape}")
         uniq = set(np.unique(arr).tolist())
         if not uniq.issubset({0, 1, False, True}):
             raise SurfaceValidationError(
@@ -107,9 +107,7 @@ def validate_surface(
             )
     else:
         if arr.ndim != 1:
-            raise SurfaceValidationError(
-                f"score surface must be 1d. Got {arr.shape}"
-            )
+            raise SurfaceValidationError(f"score surface must be 1d. Got {arr.shape}")
 
     if surface_type != SurfaceType.PROBABILITY and threshold is not None:
         raise SurfaceValidationError("threshold is only valid for probability surfaces")
