@@ -270,6 +270,51 @@ export async function getRunAnalysis(
   return apiFetch<RunAnalysisResponse>(`/experiments/${experimentId}/runs/${runId}/analysis`);
 }
 
+// ---------------------------------------------------------------------------
+// R1 Share (public share links)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a share link for a run. Requires auth (owner only). Returns token to append to URL.
+ */
+export async function createShareLink(
+  experimentId: string,
+  runId: string
+): Promise<{ share_token: string }> {
+  return apiFetch<{ share_token: string }>("/share/create", {
+    method: "POST",
+    body: JSON.stringify({ experiment_id: experimentId, run_id: runId }),
+  });
+}
+
+export interface SharedRunResponse {
+  result: ResultSummary;
+  analysis_artifacts: Record<string, unknown>;
+}
+
+/**
+ * Get run data via share token (no auth). Use for public share URLs.
+ */
+export async function getSharedRun(
+  experimentId: string,
+  runId: string,
+  token: string
+): Promise<SharedRunResponse> {
+  const url = `${API_BASE}/share/${experimentId}/${runId}?token=${encodeURIComponent(token)}`;
+  const resp = await fetch(url);
+  if (!resp.ok) {
+    let message = `HTTP ${resp.status}: ${resp.statusText}`;
+    try {
+      const data = await resp.json();
+      if (data.detail) message = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+    } catch {
+      // ignore
+    }
+    throw new ApiError(message, resp.status);
+  }
+  return resp.json();
+}
+
 /**
  * LLM explanation request.
  */
@@ -296,6 +341,107 @@ export async function compareExplain(request: CompareExplainRequest): Promise<Co
   return apiFetch<CompareExplainResponse>("/llm/compare-explain", {
     method: "POST",
     body: JSON.stringify(request),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Phase 7: Model upload and comparison
+// ---------------------------------------------------------------------------
+
+export interface ModelUploadResponse {
+  model_id: string;
+  original_filename: string;
+  model_class: string;
+  capabilities: Record<string, boolean>;
+  file_size_bytes: number;
+}
+
+export interface ModelMeta {
+  model_id: string;
+  original_filename: string;
+  model_class: string;
+  capabilities: Record<string, boolean>;
+  file_size_bytes: number;
+  uploaded_at: string;
+}
+
+/**
+ * Upload a sklearn pickle model (binary classification, predict_proba).
+ */
+export async function uploadModel(file: File): Promise<ModelUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let authToken: string | null = null;
+  if (_tokenProvider) {
+    try {
+      authToken = await _tokenProvider();
+    } catch {
+      // ignore
+    }
+  }
+
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
+  const url = `${API_BASE}/models`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        errorMessage = typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail);
+      }
+    } catch {
+      // ignore
+    }
+    throw new ApiError(errorMessage, response.status);
+  }
+
+  return response.json();
+}
+
+/**
+ * List uploaded models for the current user.
+ */
+export async function listModels(): Promise<ModelMeta[]> {
+  return apiFetch<ModelMeta[]>("/models");
+}
+
+export interface CompareRunRef {
+  experiment_id: string;
+  run_id: string;
+}
+
+export interface CompareResponse {
+  run_a: string;
+  run_b: string;
+  metric_name: string;
+  baseline_delta: Record<string, unknown>;
+  scenario_deltas: Record<string, unknown>;
+  regressions: Record<string, boolean>;
+  risk_flags: string[];
+  decision: Record<string, unknown>;
+}
+
+/**
+ * Compare two runs (requires persisted bundles).
+ */
+export async function compareRuns(
+  runA: CompareRunRef,
+  runB: CompareRunRef
+): Promise<CompareResponse> {
+  return apiFetch<CompareResponse>("/compare", {
+    method: "POST",
+    body: JSON.stringify({ run_a: runA, run_b: runB }),
   });
 }
 

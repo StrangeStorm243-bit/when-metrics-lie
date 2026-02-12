@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import {
   createExperiment,
   runExperiment,
+  uploadModel,
   getMetricPresets,
   getStressSuitePresets,
   getDatasetPresets,
@@ -12,6 +13,7 @@ import {
   type MetricPreset,
   type StressSuitePreset,
   type DatasetPreset,
+  type ModelUploadResponse,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +38,11 @@ export default function NewExperimentPage() {
   const [stressSuites, setStressSuites] = useState<StressSuitePreset[]>([]);
   const [datasets, setDatasets] = useState<DatasetPreset[]>([]);
   const [datasetPath, setDatasetPath] = useState<string>("");
+  const [modelId, setModelId] = useState<string>("");
+  const [modelMeta, setModelMeta] = useState<ModelUploadResponse | null>(null);
+  const [modelUploadError, setModelUploadError] = useState<string | null>(null);
+  const [modelUploading, setModelUploading] = useState(false);
+  const [featureCols, setFeatureCols] = useState("y_score");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPresets, setLoadingPresets] = useState(true);
@@ -69,10 +76,43 @@ export default function NewExperimentPage() {
     loadPresets();
   }, []);
 
+  async function handleModelUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setModelUploadError(null);
+    setModelMeta(null);
+    setModelId("");
+    setModelUploading(true);
+    try {
+      const res = await uploadModel(file);
+      setModelId(res.model_id);
+      setModelMeta(res);
+    } catch (err) {
+      setModelUploadError(err instanceof ApiError ? err.message : "Upload failed");
+    } finally {
+      setModelUploading(false);
+      e.target.value = "";
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
     setLoading(true);
+
+    const config: Record<string, unknown> = {};
+    if (datasetPath) config.dataset_path = datasetPath;
+    if (modelId) {
+      config.model_id = modelId;
+      config.feature_cols = featureCols
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      if (config.feature_cols instanceof Array && (config.feature_cols as string[]).length === 0) {
+        (config.feature_cols as string[]) = ["y_score"];
+      }
+      config.threshold = 0.5;
+    }
 
     try {
       // Create experiment
@@ -81,7 +121,7 @@ export default function NewExperimentPage() {
         metric_id: metricId,
         stress_suite_id: stressSuiteId,
         notes: notes || undefined,
-        config: datasetPath ? { dataset_path: datasetPath } : undefined,
+        config: Object.keys(config).length > 0 ? config : undefined,
       });
 
       // Run experiment
@@ -214,6 +254,47 @@ export default function NewExperimentPage() {
                     Tip: use two different datasets to produce different runs for Compare.
                   </p>
                 </>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label>Model (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Upload a sklearn pickle model (binary classification, must support predict_proba).
+              </p>
+              <div className="flex gap-2 items-center">
+                <Input
+                  type="file"
+                  accept=".pkl"
+                  onChange={handleModelUpload}
+                  disabled={loading || modelUploading}
+                  className="max-w-xs"
+                />
+              </div>
+              {modelUploading && <p className="text-sm text-muted-foreground">Uploading...</p>}
+              {modelUploadError && (
+                <div className="p-3 bg-destructive/10 text-destructive border border-destructive/20 rounded-md text-sm">
+                  {modelUploadError}
+                </div>
+              )}
+              {modelMeta && (
+                <div className="p-3 bg-muted rounded-md text-sm">
+                  <span className="font-medium">Uploaded:</span> {modelMeta.original_filename} — {modelMeta.model_class}
+                  {modelMeta.capabilities?.predict_proba && " (predict_proba ✓)"}
+                </div>
+              )}
+              {modelId && (
+                <div className="space-y-1">
+                  <Label htmlFor="featureCols">Feature columns (comma-separated)</Label>
+                  <Input
+                    id="featureCols"
+                    type="text"
+                    value={featureCols}
+                    onChange={(e) => setFeatureCols(e.target.value)}
+                    disabled={loading}
+                    placeholder="y_score"
+                  />
+                </div>
               )}
             </div>
 

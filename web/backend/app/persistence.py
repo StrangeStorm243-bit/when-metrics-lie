@@ -173,6 +173,28 @@ def _load_result_for_run_local(experiment_id: str, run_id: str) -> ResultSummary
         raise ValueError(f"Failed to load result for run {run_id}: {e}") from e
 
 
+def _save_bundle_local(
+    experiment_id: str, run_id: str, bundle_json: str, owner_id: str
+) -> None:
+    exp_dir = _get_experiment_dir(experiment_id)
+    runs_dir = exp_dir / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = runs_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / "bundle.json").write_text(bundle_json, encoding="utf-8")
+
+
+def _load_bundle_local(
+    experiment_id: str, run_id: str, owner_id: str
+) -> dict | None:
+    exp_dir = _get_experiment_dir(experiment_id)
+    run_dir = exp_dir / "runs" / run_id
+    bundle_file = run_dir / "bundle.json"
+    if not bundle_file.exists():
+        return None
+    return json.loads(bundle_file.read_text(encoding="utf-8"))
+
+
 # ---------------------------------------------------------------------------
 # Hosted (Supabase) implementation
 # ---------------------------------------------------------------------------
@@ -346,6 +368,28 @@ def _load_result_for_run_hosted(
         raise ValueError(f"Failed to load result for run {run_id}: {e}") from e
 
 
+def _save_bundle_hosted(
+    experiment_id: str, run_id: str, bundle_json: str, owner_id: str
+) -> None:
+    from .storage_backend import get_storage_backend, storage_key
+
+    backend = get_storage_backend()
+    key = storage_key(owner_id, experiment_id, run_id, "bundle.json")
+    backend.upload(key, bundle_json.encode("utf-8"), content_type="application/json")
+
+
+def _load_bundle_hosted(
+    experiment_id: str, run_id: str, owner_id: str
+) -> dict | None:
+    from .storage_backend import get_storage_backend, storage_key
+
+    backend = get_storage_backend()
+    key = storage_key(owner_id, experiment_id, run_id, "bundle.json")
+    if not backend.exists(key):
+        return None
+    return json.loads(backend.download(key).decode("utf-8"))
+
+
 # ---------------------------------------------------------------------------
 # Public dispatch functions
 # ---------------------------------------------------------------------------
@@ -429,3 +473,143 @@ def load_result_for_run(
     if _is_hosted():
         return _load_result_for_run_hosted(experiment_id, run_id, owner_id)
     return _load_result_for_run_local(experiment_id, run_id)
+
+
+def save_bundle(
+    experiment_id: str,
+    run_id: str,
+    bundle_json: str,
+    *,
+    owner_id: str = "anonymous",
+) -> None:
+    """Save full ResultBundle JSON for comparison (Phase 7)."""
+    if _is_hosted():
+        _save_bundle_hosted(experiment_id, run_id, bundle_json, owner_id)
+    else:
+        _save_bundle_local(experiment_id, run_id, bundle_json, owner_id)
+
+
+def load_bundle(
+    experiment_id: str,
+    run_id: str,
+    *,
+    owner_id: str = "anonymous",
+) -> dict | None:
+    """Load full ResultBundle as dict for comparison. Returns None if not found."""
+    if _is_hosted():
+        return _load_bundle_hosted(experiment_id, run_id, owner_id)
+    return _load_bundle_local(experiment_id, run_id, owner_id)
+
+
+# ---------------------------------------------------------------------------
+# R1 Share token (public share links)
+# ---------------------------------------------------------------------------
+
+
+def _save_share_token_local(
+    experiment_id: str, run_id: str, share_token: str, owner_id: str
+) -> None:
+    exp_dir = _get_experiment_dir(experiment_id)
+    runs_dir = exp_dir / "runs"
+    runs_dir.mkdir(parents=True, exist_ok=True)
+    run_dir = runs_dir / run_id
+    run_dir.mkdir(parents=True, exist_ok=True)
+    data = {
+        "share_token": share_token,
+        "experiment_id": experiment_id,
+        "run_id": run_id,
+        "owner_id": owner_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    (run_dir / "share.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+
+def _save_share_token_hosted(
+    experiment_id: str, run_id: str, share_token: str, owner_id: str
+) -> None:
+    from .storage_backend import get_storage_backend, storage_key
+
+    backend = get_storage_backend()
+    data = {
+        "share_token": share_token,
+        "experiment_id": experiment_id,
+        "run_id": run_id,
+        "owner_id": owner_id,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    key = storage_key(owner_id, experiment_id, run_id, "share.json")
+    backend.upload(
+        key, json.dumps(data, indent=2).encode("utf-8"), content_type="application/json"
+    )
+
+
+def save_share_token(
+    experiment_id: str,
+    run_id: str,
+    share_token: str,
+    *,
+    owner_id: str = "anonymous",
+) -> None:
+    """Save share metadata (token) for a run. Only owner should call this."""
+    if _is_hosted():
+        _save_share_token_hosted(experiment_id, run_id, share_token, owner_id)
+    else:
+        _save_share_token_local(experiment_id, run_id, share_token, owner_id)
+
+
+def _validate_share_token_local(
+    experiment_id: str, run_id: str, token: str
+) -> str | None:
+    exp_dir = _get_experiment_dir(experiment_id)
+    share_file = exp_dir / "runs" / run_id / "share.json"
+    if not share_file.exists():
+        return None
+    try:
+        data = json.loads(share_file.read_text(encoding="utf-8"))
+        if data.get("share_token") == token and data.get("run_id") == run_id:
+            return data.get("owner_id")
+    except Exception:
+        pass
+    return None
+
+
+def _validate_share_token_hosted(
+    experiment_id: str, run_id: str, token: str
+) -> str | None:
+    from . import supabase_db
+    from .storage_backend import get_storage_backend, storage_key
+
+    run_row = supabase_db.get_run_by_id(run_id)
+    if not run_row:
+        return None
+    owner_id = run_row.get("owner_id")
+    if not owner_id or run_row.get("experiment_id") != experiment_id:
+        return None
+    backend = get_storage_backend()
+    key = storage_key(owner_id, experiment_id, run_id, "share.json")
+    if not backend.exists(key):
+        return None
+    try:
+        raw = backend.download(key)
+        data = json.loads(raw.decode("utf-8"))
+        if data.get("share_token") == token and data.get("run_id") == run_id:
+            return owner_id
+    except Exception:
+        pass
+    return None
+
+
+def validate_share_token(
+    experiment_id: str, run_id: str, token: str
+) -> str | None:
+    """Validate share token; return owner_id if valid, None otherwise."""
+    if _is_hosted():
+        return _validate_share_token_hosted(experiment_id, run_id, token)
+    return _validate_share_token_local(experiment_id, run_id, token)
+
+
+def load_result_for_shared_run(
+    experiment_id: str, run_id: str, owner_id: str
+) -> ResultSummary:
+    """Load result for a run using owner_id from share metadata (no auth check)."""
+    return load_result_for_run(experiment_id, run_id, owner_id=owner_id)

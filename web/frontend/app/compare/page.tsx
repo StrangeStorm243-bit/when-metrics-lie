@@ -5,12 +5,14 @@ import {
   listExperiments,
   listRuns,
   getRunResult,
+  compareRuns,
   compareExplain,
   ApiError,
   type ExperimentSummary,
   type RunSummary,
   type ResultSummary,
   type CompareExplainRequest,
+  type CompareResponse,
 } from "@/lib/api";
 import {
   buildScenarioDiff,
@@ -42,6 +44,7 @@ export default function ComparePage() {
   // Comparison results
   const [resultA, setResultA] = useState<ResultSummary | null>(null);
   const [resultB, setResultB] = useState<ResultSummary | null>(null);
+  const [backendCompare, setBackendCompare] = useState<CompareResponse | null>(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -124,6 +127,7 @@ export default function ComparePage() {
     setLoadingComparison(true);
     setResultA(null);
     setResultB(null);
+    setBackendCompare(null);
     setAnalystMessages([]);
     setPinnedMessages(new Set());
     setFocus(null);
@@ -135,6 +139,18 @@ export default function ComparePage() {
       ]);
       setResultA(resA);
       setResultB(resB);
+
+      // Phase 7: backend compare (regressions, risk flags, decision) when bundles exist
+      try {
+        const compareData = await compareRuns(
+          { experiment_id: experimentIdA, run_id: runIdA },
+          { experiment_id: experimentIdB, run_id: runIdB },
+        );
+        setBackendCompare(compareData);
+      } catch {
+        // Bundles may not exist for pre-Phase-7 runs; keep existing client-side comparison
+        setBackendCompare(null);
+      }
 
       // Auto-trigger overview
       if (resA && resB) {
@@ -616,6 +632,68 @@ export default function ComparePage() {
       {/* Comparison Dashboard */}
       {resultA && resultB && (
         <div style={{ display: "grid", gap: "1.5rem" }}>
+          {/* Phase 7: Backend compare (regressions, risk flags, decision) */}
+          {backendCompare && (
+            <div
+              style={{
+                padding: "1.5rem",
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                backgroundColor: "#f8f9fa",
+              }}
+            >
+              <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Comparison Summary</h2>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem", marginBottom: "1rem" }}>
+                {backendCompare.regressions && typeof backendCompare.regressions === "object" && (
+                  <>
+                    {Object.entries(backendCompare.regressions).map(([key, val]) => (
+                      <span
+                        key={key}
+                        style={{
+                          padding: "0.25rem 0.5rem",
+                          borderRadius: "4px",
+                          fontSize: "0.875rem",
+                          backgroundColor: val ? "#f8d7da" : "#d4edda",
+                          color: val ? "#721c24" : "#155724",
+                        }}
+                      >
+                        {key}: {val ? "regression" : "ok"}
+                      </span>
+                    ))}
+                  </>
+                )}
+              </div>
+              {backendCompare.risk_flags && backendCompare.risk_flags.length > 0 && (
+                <div style={{ marginBottom: "1rem" }}>
+                  <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Risk flags</h3>
+                  <ul style={{ margin: 0, paddingLeft: "1.25rem" }}>
+                    {backendCompare.risk_flags.map((flag, i) => (
+                      <li key={i} style={{ marginBottom: "0.25rem" }}>{flag}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {backendCompare.decision && typeof backendCompare.decision === "object" && (
+                <div>
+                  <h3 style={{ fontSize: "1rem", marginBottom: "0.5rem" }}>Decision</h3>
+                  <p style={{ margin: "0.25rem 0" }}>
+                    <strong>Winner:</strong> {(backendCompare.decision as Record<string, unknown>).winner as string}
+                    {" · "}
+                    <strong>Confidence:</strong> {(backendCompare.decision as Record<string, unknown>).confidence as string}
+                  </p>
+                  {Array.isArray((backendCompare.decision as Record<string, unknown>).reasoning) &&
+                    ((backendCompare.decision as Record<string, unknown>).reasoning as string[]).length > 0 && (
+                      <ul style={{ margin: "0.5rem 0 0 1.25rem", padding: 0 }}>
+                        {((backendCompare.decision as Record<string, unknown>).reasoning as string[]).map((r, i) => (
+                          <li key={i} style={{ marginBottom: "0.25rem" }}>{r}</li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Pinned Messages Strip */}
           {pinnedMessagesList.length > 0 && (
             <div className="pinnedStrip">

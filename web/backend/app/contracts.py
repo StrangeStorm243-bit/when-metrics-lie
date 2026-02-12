@@ -134,3 +134,96 @@ class RunAnalysisResponse(BaseModel):
         default_factory=dict,
         description="Threshold sweep, sensitivity, disagreement, failure modes",
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 7: Model upload and comparison
+# ---------------------------------------------------------------------------
+
+
+class ModelUploadResponse(BaseModel):
+    """Response after successful model upload."""
+
+    model_id: str = Field(..., description="Content-addressable model ID (SHA256)")
+    original_filename: str = Field(..., description="Original file name")
+    model_class: str = Field(..., description="Model class name")
+    capabilities: dict = Field(
+        default_factory=dict,
+        description="predict, predict_proba, decision_function",
+    )
+    file_size_bytes: int = Field(..., description="File size in bytes")
+
+
+class ModelMeta(BaseModel):
+    """Metadata for an uploaded model."""
+
+    model_id: str = Field(..., description="Model ID")
+    original_filename: str = Field(..., description="Original file name")
+    model_class: str = Field(..., description="Model class name")
+    capabilities: dict = Field(default_factory=dict, description="Model capabilities")
+    file_size_bytes: int = Field(..., description="File size in bytes")
+    uploaded_at: datetime = Field(..., description="Upload timestamp")
+
+
+class CompareRunRef(BaseModel):
+    """Reference to a run for comparison."""
+
+    experiment_id: str = Field(..., description="Experiment ID")
+    run_id: str = Field(..., description="Run ID")
+
+
+class CompareRequest(BaseModel):
+    """Request to compare two runs."""
+
+    run_a: CompareRunRef = Field(..., description="First run")
+    run_b: CompareRunRef = Field(..., description="Second run")
+
+
+class CompareResponse(BaseModel):
+    """Response from compare endpoint (from core compare_bundles)."""
+
+    run_a: str = Field(..., description="Run A ID")
+    run_b: str = Field(..., description="Run B ID")
+    metric_name: str = Field(..., description="Metric name")
+    baseline_delta: dict = Field(default_factory=dict, description="Baseline delta")
+    scenario_deltas: dict = Field(default_factory=dict, description="Per-scenario deltas")
+    regressions: dict = Field(
+        default_factory=dict,
+        description="Regression flags (calibration, subgroup, metric, gaming)",
+    )
+    risk_flags: list = Field(default_factory=list, description="Risk flag strings")
+    decision: dict = Field(
+        default_factory=dict,
+        description="Winner, confidence, reasoning",
+    )
+
+    class Config:
+        extra = "allow"
+
+
+# ---------------------------------------------------------------------------
+# R1 Share route
+# ---------------------------------------------------------------------------
+
+
+class ShareCreateRequest(BaseModel):
+    """Request to create a share link for a run."""
+
+    experiment_id: str = Field(..., description="Experiment ID")
+    run_id: str = Field(..., description="Run ID")
+
+
+class ShareCreateResponse(BaseModel):
+    """Response after creating a share link."""
+
+    share_token: str = Field(..., description="Token to append to share URL")
+
+
+class SharedRunResponse(BaseModel):
+    """Response for public share endpoint (result + analysis in one payload)."""
+
+    result: ResultSummary = Field(..., description="Run result summary")
+    analysis_artifacts: dict = Field(
+        default_factory=dict,
+        description="Phase 5 analysis artifacts",
+    )

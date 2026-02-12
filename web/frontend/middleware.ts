@@ -23,6 +23,7 @@ export default async function middleware(request: NextRequest) {
   const isPublicRoute = createRouteMatcher([
     "/sign-in(.*)",
     "/sign-up(.*)",
+    "/runs(.*)",
   ]);
 
   // Create and invoke the Clerk middleware

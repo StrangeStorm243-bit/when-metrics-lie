@@ -133,8 +133,7 @@ class SupabaseStorage:
             return False
 
     def list_keys(self, prefix: str) -> list[str]:
-        parts = prefix.rstrip("/").rsplit("/", 1)
-        folder = parts[0] if len(parts) > 1 else ""
+        folder = prefix.rstrip("/")
         result = self._client.storage.from_(self._bucket).list(folder)
         keys = []
         for item in result:

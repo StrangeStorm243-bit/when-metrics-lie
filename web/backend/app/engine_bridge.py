@@ -1,5 +1,7 @@
 """Bridge module to call Spectra core engine functions directly."""
 
+import pickle
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -7,6 +9,7 @@ from metrics_lie.execution import run_from_spec_dict
 from metrics_lie.schema import ResultBundle
 from metrics_lie.utils.paths import get_run_dir
 
+from .config import get_settings
 from .contracts import (
     ComponentScore,
     ExperimentCreateRequest,
@@ -14,6 +17,7 @@ from .contracts import (
     ResultSummary,
     ScenarioResult as ContractScenarioResult,
 )
+from .persistence import save_bundle
 
 
 def _find_repo_root() -> Path:
@@ -171,6 +175,41 @@ def _get_default_dataset(create_req: ExperimentCreateRequest) -> dict:
     return dataset_dict
 
 
+def _resolve_model_path(model_id: str, owner_id: str) -> tuple[str, str | None]:
+    """Resolve model_id to absolute filesystem path for the engine.
+
+    Local: returns (path, None) — no cleanup needed.
+    Hosted: returns (temp_path, temp_path) — caller must unlink temp_path in finally.
+    """
+    settings = get_settings()
+    if settings.is_hosted:
+        from .storage_backend import get_storage_backend
+
+        backend = get_storage_backend()
+        key = f"models/{owner_id}/{model_id}.pkl"
+        raw = backend.download(key)
+        fd, path = tempfile.mkstemp(suffix=".pkl")
+        try:
+            import os
+
+            os.write(fd, raw)
+            os.close(fd)
+            return path, path
+        except Exception:
+            import os
+
+            try:
+                os.close(fd)
+            except Exception:
+                pass
+            raise
+    repo_root = _find_repo_root()
+    pkl_path = repo_root / ".spectra_ui" / "models" / owner_id / f"{model_id}.pkl"
+    if not pkl_path.exists():
+        raise ValueError(f"Model {model_id} not found for owner")
+    return str(pkl_path.resolve()), None
+
+
 def _bundle_to_result_summary(
     bundle: ResultBundle, experiment_id: str, run_id: str
 ) -> ResultSummary:
@@ -253,6 +292,7 @@ def run_experiment(
     experiment_id: str,
     run_id: str,
     seed: int | None = None,
+    owner_id: str = "anonymous",
 ) -> ResultSummary:
     """
     Run an experiment using Spectra core engine.
@@ -262,6 +302,7 @@ def run_experiment(
         experiment_id: Experiment ID
         run_id: Run ID
         seed: Optional random seed
+        owner_id: Owner ID for model resolution and bundle persistence
 
     Returns:
         ResultSummary with experiment results
@@ -287,19 +328,55 @@ def run_experiment(
     if isinstance(model_source, dict):
         spec_dict["model_source"] = model_source
 
+    # Phase 7: model_id resolution (takes precedence if both model_source and model_id exist)
+    model_id = create_req.config.get("model_id") if create_req.config else None
+    temp_path_to_clean: str | None = None
+    if model_id:
+        resolved_path, temp_path_to_clean = _resolve_model_path(model_id, owner_id)
+        feature_cols = create_req.config.get("feature_cols", ["y_score"])
+        if not isinstance(feature_cols, list):
+            feature_cols = ["y_score"]
+        spec_dict["dataset"] = {**spec_dict["dataset"], "feature_cols": feature_cols}
+        spec_dict["model_source"] = {
+            "kind": "pickle",
+            "path": resolved_path,
+            "threshold": create_req.config.get("threshold", 0.5),
+        }
+        # Feature count validation: fail-fast with actionable message
+        with open(resolved_path, "rb") as f:
+            probe_model = pickle.load(f)
+        n_expected = getattr(probe_model, "n_features_in_", None)
+        if n_expected is not None and len(feature_cols) != n_expected:
+            raise ValueError(
+                f"Model expects {n_expected} features but {len(feature_cols)} feature "
+                f"columns provided: {feature_cols}"
+            )
+
     # Ensure core DB is initialized before calling engine
     ensure_core_db_initialized()
 
-    # Call core engine
-    spec_path_for_notes = f"<ui_experiment:{experiment_id}:{run_id}>"
-    returned_run_id = run_from_spec_dict(
-        spec_dict, spec_path_for_notes=spec_path_for_notes
-    )
+    try:
+        # Call core engine
+        spec_path_for_notes = f"<ui_experiment:{experiment_id}:{run_id}>"
+        returned_run_id = run_from_spec_dict(
+            spec_dict, spec_path_for_notes=spec_path_for_notes
+        )
 
-    # Read ResultBundle from disk
-    run_paths = get_run_dir(returned_run_id)
-    bundle_json = run_paths.results_json.read_text(encoding="utf-8")
-    bundle = ResultBundle.model_validate_json(bundle_json)
+        # Read ResultBundle from disk
+        run_paths = get_run_dir(returned_run_id)
+        bundle_json = run_paths.results_json.read_text(encoding="utf-8")
+        bundle = ResultBundle.model_validate_json(bundle_json)
 
-    # Convert to ResultSummary
-    return _bundle_to_result_summary(bundle, experiment_id, run_id)
+        # Phase 7: persist full bundle for comparison
+        save_bundle(experiment_id, run_id, bundle_json, owner_id=owner_id)
+
+        # Convert to ResultSummary
+        return _bundle_to_result_summary(bundle, experiment_id, run_id)
+    finally:
+        if temp_path_to_clean:
+            import os
+
+            try:
+                os.unlink(temp_path_to_clean)
+            except Exception:
+                pass

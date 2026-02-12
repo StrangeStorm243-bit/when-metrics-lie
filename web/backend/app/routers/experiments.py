@@ -128,8 +128,10 @@ async def run_experiment_endpoint(
     run_id = str(uuid.uuid4())
 
     try:
-        # Run experiment
-        result = run_experiment(create_req, experiment_id, run_id, seed=run_req.seed)
+        # Run experiment (pass owner_id for model resolution and bundle persistence)
+        result = run_experiment(
+            create_req, experiment_id, run_id, seed=run_req.seed, owner_id=owner_id
+        )
 
         # Save result
         save_result(experiment_id, run_id, result, owner_id=owner_id)

@@ -148,6 +148,13 @@ def get_run(run_id: str, owner_id: str) -> dict | None:
     return result.data[0] if result.data else None
 
 
+def get_run_by_id(run_id: str) -> dict | None:
+    """Get a run by ID only (service-role bypasses RLS). Used for share token validation."""
+    client = _get_client()
+    result = client.table("runs").select("*").eq("id", run_id).execute()
+    return result.data[0] if result.data else None
+
+
 def update_run(run_id: str, owner_id: str, updates: dict) -> dict | None:
     """Update a run row, scoped to owner."""
     client = _get_client()
