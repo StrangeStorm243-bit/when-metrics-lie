@@ -52,6 +52,19 @@ class ModelSourceSpec(BaseModel):
     )
 
 
+class SurfaceSourceSpec(BaseModel):
+    """Direct surface ingestion from CSV columns -- no model needed.
+
+    When present, the engine creates a PredictionSurface directly from y_score
+    in the CSV, triggers MetricResolver, and runs multi-metric evaluation.
+    """
+
+    kind: Literal["csv_columns"] = "csv_columns"
+    surface_type: Literal["probability"] = "probability"
+    threshold: float = Field(default=0.5, description="Decision threshold.")
+    positive_label: int = Field(default=1, description="Positive label index.")
+
+
 class ScenarioSpec(BaseModel):
     """
     A single stress test configuration.
@@ -77,6 +90,11 @@ class ExperimentSpec(BaseModel):
     model_source: Optional[ModelSourceSpec] = Field(
         default=None,
         description="Optional model source to generate predictions via inference.",
+    )
+    surface_source: Optional[SurfaceSourceSpec] = Field(
+        default=None,
+        description="Optional direct surface ingestion from CSV (Phase 8). "
+        "When set, creates PredictionSurface from y_score and triggers multi-metric.",
     )
 
     scenarios: List[ScenarioSpec] = Field(default_factory=list)

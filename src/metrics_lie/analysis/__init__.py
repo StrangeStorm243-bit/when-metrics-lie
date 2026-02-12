@@ -2,6 +2,7 @@ from .threshold_sweep import ThresholdSweepResult, run_threshold_sweep
 from .sensitivity import SensitivityAnalysisResult, run_sensitivity_analysis
 from .disagreement import MetricDisagreementResult, analyze_metric_disagreements
 from .failure_modes import FailureModeReport, locate_failure_modes
+from .dashboard import DashboardSummary, build_dashboard_summary
 
 __all__ = [
     "ThresholdSweepResult",
@@ -12,4 +13,6 @@ __all__ = [
     "analyze_metric_disagreements",
     "FailureModeReport",
     "locate_failure_modes",
+    "DashboardSummary",
+    "build_dashboard_summary",
 ]

@@ -313,7 +313,76 @@ def compare_bundles(
         "confidence": confidence,
         "reasoning": reasoning,
     }
+
+    # Phase 8: Multi-metric comparison
+    multi_metric_comparison = _compare_multi_metric(bundle_a, bundle_b)
+    if multi_metric_comparison:
+        report["multi_metric_comparison"] = multi_metric_comparison
+
     return report
+
+
+def _compare_multi_metric(
+    bundle_a: Dict[str, Any], bundle_b: Dict[str, Any]
+) -> Optional[Dict[str, Any]]:
+    """Compare bundles across multiple metrics from metric_results.
+
+    Returns None if neither bundle has metric_results (backward compat).
+    """
+    mr_a = bundle_a.get("metric_results") or {}
+    mr_b = bundle_b.get("metric_results") or {}
+
+    if not mr_a and not mr_b:
+        return None
+
+    metrics_a = set(mr_a.keys())
+    metrics_b = set(mr_b.keys())
+
+    shared = sorted(metrics_a & metrics_b)
+    only_in_a = sorted(metrics_a - metrics_b)
+    only_in_b = sorted(metrics_b - metrics_a)
+
+    per_metric_deltas: Dict[str, Dict[str, Any]] = {}
+    improved_count = 0
+    regressed_count = 0
+
+    for metric_id in shared:
+        a_mean = _get_mean(mr_a.get(metric_id, {}))
+        b_mean = _get_mean(mr_b.get(metric_id, {}))
+
+        if a_mean is not None and b_mean is not None:
+            delta = b_mean - a_mean
+            per_metric_deltas[metric_id] = {
+                "baseline_delta": delta,
+                "a": a_mean,
+                "b": b_mean,
+            }
+            if delta > 0.001:  # Small epsilon for "improvement"
+                improved_count += 1
+            elif delta < -0.001:
+                regressed_count += 1
+        else:
+            per_metric_deltas[metric_id] = {
+                "baseline_delta": None,
+                "a": a_mean,
+                "b": b_mean,
+            }
+
+    total = len(shared)
+    if total > 0:
+        summary = f"{improved_count}/{total} shared metrics improved; {regressed_count} regressed"
+    else:
+        summary = "No shared metrics to compare"
+
+    return {
+        "shared_metrics": shared,
+        "only_in_a": only_in_a,
+        "only_in_b": only_in_b,
+        "per_metric_deltas": per_metric_deltas,
+        "improved_count": improved_count,
+        "regressed_count": regressed_count,
+        "summary": summary,
+    }
 
 
 def compare_runs(run_id_a: str, run_id_b: str) -> Dict[str, Any]:

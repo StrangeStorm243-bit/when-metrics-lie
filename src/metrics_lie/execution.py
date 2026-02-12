@@ -21,6 +21,7 @@ from metrics_lie.metrics.applicability import (
 from metrics_lie.model.surface import SurfaceType
 from metrics_lie.analysis import (
     analyze_metric_disagreements,
+    build_dashboard_summary,
     locate_failure_modes,
     run_sensitivity_analysis,
     run_threshold_sweep,
@@ -154,8 +155,39 @@ def run_from_spec_dict(
         surface_type = prediction_surface.surface_type
         y_score = prediction_surface.values.astype(float)
 
+    # Phase 8: Direct surface ingestion from CSV (no model needed).
+    elif spec.surface_source is not None:
+        from metrics_lie.model.surface import (
+            CalibrationState,
+            PredictionSurface,
+            validate_surface,
+        )
+
+        # Create PredictionSurface directly from y_score column.
+        surface_type_enum = SurfaceType.PROBABILITY
+        validated_values = validate_surface(
+            surface_type=surface_type_enum,
+            values=y_score,
+            expected_n_samples=len(y_true),
+            threshold=spec.surface_source.threshold,
+        )
+        prediction_surface = PredictionSurface(
+            surface_type=surface_type_enum,
+            values=validated_values,
+            dtype=validated_values.dtype,
+            n_samples=len(y_true),
+            class_names=("0", "1"),
+            positive_label=spec.surface_source.positive_label,
+            threshold=spec.surface_source.threshold,
+            calibration_state=CalibrationState.UNKNOWN,
+            model_hash=None,
+            is_deterministic=True,
+        )
+        surface_type = surface_type_enum
+
     # Resolve applicable metrics based on surface type and dataset properties.
-    if spec.model_source is not None:
+    # Triggered when model_source OR surface_source is present (multi-metric mode).
+    if spec.model_source is not None or spec.surface_source is not None:
         dataset_props = DatasetProperties(
             n_samples=int(len(y_true)),
             n_positive=int(np.sum(y_true == 1)),
@@ -465,6 +497,19 @@ def run_from_spec_dict(
                 top_k=20,
             )
             analysis_artifacts["failure_modes"] = failures.to_jsonable()
+
+        # Phase 8: Build dashboard summary for multi-metric runs
+        if len(applicable.metrics) > 1:
+            dashboard = build_dashboard_summary(
+                primary_metric=primary_metric,
+                surface_type=surface_type.value,
+                metric_results={k: v.model_dump() for k, v in metric_results.items()},
+                scenario_results_by_metric={
+                    k: [sr.model_dump() for sr in v]
+                    for k, v in scenario_results_by_metric.items()
+                },
+            )
+            analysis_artifacts["dashboard_summary"] = dashboard.to_jsonable()
 
         bundle = ResultBundle(
             run_id=run_id,

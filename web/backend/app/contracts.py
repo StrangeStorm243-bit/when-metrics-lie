@@ -121,6 +121,10 @@ class ResultSummary(BaseModel):
         None,
         description="Phase 5 analysis artifacts (threshold sweep, sensitivity, etc.)",
     )
+    dashboard_summary: Optional[dict] = Field(
+        None,
+        description="Phase 8 multi-metric dashboard summary (only for multi-metric runs)",
+    )
     generated_at: datetime = Field(
         ..., description="Timestamp when results were generated"
     )

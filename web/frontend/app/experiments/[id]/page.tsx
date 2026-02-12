@@ -589,6 +589,73 @@ export default function ExperimentPage() {
           )}
         </div>
 
+        {/* Phase 8: Multi-Metric Dashboard Summary */}
+        {result.dashboard_summary && (
+          <div
+            style={{
+              padding: "1.5rem",
+              border: "1px solid #e0e0e0",
+              borderRadius: "8px",
+              backgroundColor: "#f8f9fa",
+            }}
+          >
+            <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Multi-Metric Dashboard</h2>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
+                    <th style={{ textAlign: "left", padding: "0.5rem" }}>Metric</th>
+                    <th style={{ textAlign: "right", padding: "0.5rem" }}>Baseline</th>
+                    <th style={{ textAlign: "right", padding: "0.5rem" }}>Worst Δ</th>
+                    <th style={{ textAlign: "left", padding: "0.5rem" }}>Worst Scenario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {result.dashboard_summary.metrics.map((m) => (
+                    <tr key={m.metric_id} style={{ borderBottom: "1px solid #e0e0e0" }}>
+                      <td style={{ padding: "0.5rem", fontWeight: m.metric_id === result.dashboard_summary!.primary_metric ? "bold" : "normal" }}>
+                        {m.metric_id}
+                        {m.metric_id === result.dashboard_summary!.primary_metric && " (primary)"}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "0.5rem" }}>
+                        {m.baseline.toFixed(4)}
+                      </td>
+                      <td style={{
+                        textAlign: "right",
+                        padding: "0.5rem",
+                        color: m.worst_scenario?.delta !== undefined && m.worst_scenario.delta < -0.05 ? "#dc3545" : "#28a745",
+                        fontWeight: "bold",
+                      }}>
+                        {m.worst_scenario?.delta !== undefined ? m.worst_scenario.delta.toFixed(4) : "—"}
+                      </td>
+                      <td style={{ padding: "0.5rem" }}>
+                        {m.worst_scenario?.scenario_id || "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {/* Risk Summary */}
+            {result.dashboard_summary.risk_summary && (
+              <div style={{ marginTop: "1rem", fontSize: "0.875rem" }}>
+                <div style={{ marginBottom: "0.5rem" }}>
+                  <strong>Metrics with large drops:</strong>{" "}
+                  {result.dashboard_summary.risk_summary.metrics_with_large_drops.length > 0
+                    ? result.dashboard_summary.risk_summary.metrics_with_large_drops.join(", ")
+                    : "None"}
+                </div>
+                <div>
+                  <strong>Stable metrics:</strong>{" "}
+                  {result.dashboard_summary.risk_summary.stable_metrics.length > 0
+                    ? result.dashboard_summary.risk_summary.stable_metrics.join(", ")
+                    : "None"}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {(result.prediction_surface || (result.applicable_metrics && result.applicable_metrics.length > 0)) && (
           <div
             style={{

@@ -93,6 +93,27 @@ export interface ResultSummary {
   prediction_surface?: Record<string, unknown> | null;
   applicable_metrics?: string[];
   analysis_artifacts?: Record<string, unknown> | null;
+  // Phase 8: Multi-metric dashboard summary (present for multi-metric runs)
+  dashboard_summary?: {
+    version: string;
+    primary_metric: string;
+    surface_type: string;
+    metrics: Array<{
+      metric_id: string;
+      baseline: number;
+      worst_scenario: { scenario_id: string; score: number; delta: number } | null;
+      best_scenario: { scenario_id: string; score: number; delta: number } | null;
+      scenario_range: number;
+      n_scenarios: number;
+    }>;
+    risk_summary: {
+      metrics_with_large_drops: string[];
+      stable_metrics: string[];
+      worst_overall_delta: number | null;
+      worst_overall_metric: string | null;
+      worst_overall_scenario: string | null;
+    };
+  } | null;
   generated_at: string;
 }
 
@@ -430,6 +451,16 @@ export interface CompareResponse {
   regressions: Record<string, boolean>;
   risk_flags: string[];
   decision: Record<string, unknown>;
+  // Phase 8: Multi-metric comparison (optional, present when bundles have metric_results)
+  multi_metric_comparison?: {
+    shared_metrics: string[];
+    only_in_a: string[];
+    only_in_b: string[];
+    per_metric_deltas: Record<string, { baseline_delta: number | null; a: number | null; b: number | null }>;
+    improved_count: number;
+    regressed_count: number;
+    summary: string;
+  };
 }
 
 /**

@@ -694,6 +694,72 @@ export default function ComparePage() {
             </div>
           )}
 
+          {/* Phase 8: Multi-Metric Comparison */}
+          {backendCompare?.multi_metric_comparison && (
+            <div
+              style={{
+                padding: "1.5rem",
+                border: "1px solid #e0e0e0",
+                borderRadius: "8px",
+                backgroundColor: "white",
+              }}
+            >
+              <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Multi-Metric Comparison</h2>
+              <div style={{ overflowX: "auto", marginBottom: "1rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                  <thead>
+                    <tr style={{ borderBottom: "2px solid #e0e0e0" }}>
+                      <th style={{ textAlign: "left", padding: "0.5rem" }}>Metric</th>
+                      <th style={{ textAlign: "right", padding: "0.5rem" }}>A Baseline</th>
+                      <th style={{ textAlign: "right", padding: "0.5rem" }}>B Baseline</th>
+                      <th style={{ textAlign: "right", padding: "0.5rem" }}>Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {backendCompare.multi_metric_comparison.shared_metrics.map((metricId) => {
+                      const d = backendCompare.multi_metric_comparison!.per_metric_deltas[metricId];
+                      const delta = d.baseline_delta;
+                      return (
+                        <tr key={metricId} style={{ borderBottom: "1px solid #e0e0e0" }}>
+                          <td style={{ padding: "0.5rem" }}>{metricId}</td>
+                          <td style={{ textAlign: "right", padding: "0.5rem" }}>
+                            {typeof d.a === "number" ? d.a.toFixed(4) : "—"}
+                          </td>
+                          <td style={{ textAlign: "right", padding: "0.5rem" }}>
+                            {typeof d.b === "number" ? d.b.toFixed(4) : "—"}
+                          </td>
+                          <td style={{
+                            textAlign: "right",
+                            padding: "0.5rem",
+                            color: delta !== null ? (delta > 0 ? "#28a745" : delta < 0 ? "#dc3545" : "#666") : "#666",
+                            fontWeight: "bold",
+                          }}>
+                            {delta !== null ? (delta > 0 ? "+" : "") + delta.toFixed(4) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: "0.875rem", color: "#666" }}>
+                <p style={{ margin: "0 0 0.25rem 0" }}>
+                  <strong>Summary:</strong> {backendCompare.multi_metric_comparison.summary}
+                </p>
+                {backendCompare.multi_metric_comparison.only_in_a.length > 0 && (
+                  <p style={{ margin: "0 0 0.25rem 0" }}>
+                    <strong>Only in A:</strong> {backendCompare.multi_metric_comparison.only_in_a.join(", ")}
+                  </p>
+                )}
+                {backendCompare.multi_metric_comparison.only_in_b.length > 0 && (
+                  <p style={{ margin: 0 }}>
+                    <strong>Only in B:</strong> {backendCompare.multi_metric_comparison.only_in_b.join(", ")}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Pinned Messages Strip */}
           {pinnedMessagesList.length > 0 && (
             <div className="pinnedStrip">

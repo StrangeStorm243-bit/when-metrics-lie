@@ -272,6 +272,11 @@ def _bundle_to_result_summary(
                 )
             )
 
+    # Phase 8: Extract dashboard_summary from analysis_artifacts if present
+    dashboard_summary = None
+    if bundle.analysis_artifacts and "dashboard_summary" in bundle.analysis_artifacts:
+        dashboard_summary = bundle.analysis_artifacts["dashboard_summary"]
+
     return ResultSummary(
         experiment_id=experiment_id,
         run_id=run_id,
@@ -283,6 +288,7 @@ def _bundle_to_result_summary(
         prediction_surface=bundle.prediction_surface,
         applicable_metrics=bundle.applicable_metrics,
         analysis_artifacts=bundle.analysis_artifacts,
+        dashboard_summary=dashboard_summary,
         generated_at=datetime.fromisoformat(bundle.created_at.replace("Z", "+00:00")),
     )
 
@@ -327,6 +333,17 @@ def run_experiment(
     model_source = create_req.config.get("model_source") if create_req.config else None
     if isinstance(model_source, dict):
         spec_dict["model_source"] = model_source
+
+    # Phase 8: multi_metric flag triggers surface_source injection
+    multi_metric = create_req.config.get("multi_metric") if create_req.config else False
+    if multi_metric and not model_source:
+        # Use surface_source to enable multi-metric mode without a model
+        spec_dict["surface_source"] = {
+            "kind": "csv_columns",
+            "surface_type": "probability",
+            "threshold": create_req.config.get("threshold", 0.5),
+            "positive_label": 1,
+        }
 
     # Phase 7: model_id resolution (takes precedence if both model_source and model_id exist)
     model_id = create_req.config.get("model_id") if create_req.config else None
