@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 TaskType = Literal["binary_classification"]
@@ -60,9 +60,25 @@ class SurfaceSourceSpec(BaseModel):
     """
 
     kind: Literal["csv_columns"] = "csv_columns"
-    surface_type: Literal["probability"] = "probability"
-    threshold: float = Field(default=0.5, description="Decision threshold.")
+    surface_type: Literal["probability", "score", "label"] = "probability"
+    threshold: Optional[float] = Field(
+        default=None,
+        description="Decision threshold (probability only; must be None for score).",
+    )
     positive_label: int = Field(default=1, description="Positive label index.")
+
+    @model_validator(mode="after")
+    def _validate_threshold_by_surface_type(self) -> "SurfaceSourceSpec":
+        if self.surface_type == "probability":
+            if self.threshold is None:
+                return self.model_copy(update={"threshold": 0.5})
+        else:
+            if self.threshold is not None:
+                raise ValueError(
+                    "threshold must be None for surface_type='score' and 'label'; "
+                    "only probability surfaces use a threshold."
+                )
+        return self
 
 
 class ScenarioSpec(BaseModel):

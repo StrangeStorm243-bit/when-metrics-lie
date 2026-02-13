@@ -58,10 +58,26 @@ def run_threshold_sweep(
     metrics: list[str],
     n_points: int = 101,
 ) -> ThresholdSweepResult:
-    if surface.surface_type != SurfaceType.PROBABILITY:
-        raise ValueError("threshold sweep requires probability surface")
+    if surface.surface_type not in (SurfaceType.PROBABILITY, SurfaceType.SCORE):
+        raise ValueError("threshold sweep requires probability or score surface")
 
-    thresholds = np.linspace(0.0, 1.0, n_points)
+    if surface.surface_type == SurfaceType.PROBABILITY:
+        low, high = 0.0, 1.0
+    else:
+        finite_vals = np.asarray(surface.values, dtype=float)
+        finite_vals = finite_vals[np.isfinite(finite_vals)]
+        if finite_vals.size == 0:
+            raise ValueError(
+                "threshold sweep requires score variance; surface values are constant"
+            )
+        vmin = float(np.min(finite_vals))
+        vmax = float(np.max(finite_vals))
+        if vmin == vmax:
+            raise ValueError(
+                "threshold sweep requires score variance; surface values are constant"
+            )
+        low, high = vmin, vmax
+    thresholds = np.linspace(low, high, n_points)
     curves: dict[str, np.ndarray] = {}
     optimal_thresholds: dict[str, float] = {}
 
@@ -72,7 +88,7 @@ def run_threshold_sweep(
             curves[metric_id] = np.array(vals, dtype=float)
             best_idx = int(np.argmax(curves[metric_id]))
             optimal_thresholds[metric_id] = float(thresholds[best_idx])
-        elif metric_id in SCORE_METRICS:
+        elif metric_id in SCORE_METRICS and surface.surface_type == SurfaceType.PROBABILITY:
             if metric_id == "ece":
                 v = SCORE_METRICS[metric_id](y_true, surface.values, n_bins=10)
             else:

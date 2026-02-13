@@ -41,7 +41,7 @@ def analyze_metric_disagreements(
     thresholds: dict[str, float],
     metrics: list[str],
 ) -> list[MetricDisagreementResult]:
-    if surface.surface_type != SurfaceType.PROBABILITY:
+    if surface.surface_type not in (SurfaceType.PROBABILITY, SurfaceType.SCORE):
         return []
 
     threshold_metrics = [

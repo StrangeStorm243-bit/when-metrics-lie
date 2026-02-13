@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
+import numpy as np
 import pandas as pd
 
 
@@ -22,6 +23,16 @@ def _validate_probability_series(s: pd.Series, name: str) -> None:
     if ((s < 0) | (s > 1)).any():
         bad = s[(s < 0) | (s > 1)].head(5).tolist()
         raise ValueError(f"{name} must be in [0, 1]. Example bad values: {bad}")
+
+
+def _validate_numeric_series(s: pd.Series, name: str) -> None:
+    """Require numeric dtype, no NaN, no Inf (for score surfaces)."""
+    if not pd.api.types.is_numeric_dtype(s):
+        raise ValueError(f"{name} must be numeric. Got dtype: {s.dtype}")
+    if s.isna().any():
+        raise ValueError(f"{name} contains NaNs.")
+    if np.isinf(s).any():
+        raise ValueError(f"{name} contains Inf values.")
 
 
 def _validate_binary_labels(s: pd.Series, name: str) -> None:
@@ -43,6 +54,7 @@ def load_binary_csv(
     feature_cols: list[str] | None = None,
     require_features: bool = False,
     allow_missing_score: bool = False,
+    score_validation: Literal["probability", "score", "label", "none"] = "probability",
 ) -> LoadedBinaryDataset:
     p = Path(path)
     if not p.exists():
@@ -66,7 +78,13 @@ def load_binary_csv(
     y_score = df[y_score_col]
 
     _validate_binary_labels(y_true, y_true_col)
-    _validate_probability_series(y_score, y_score_col)
+    if score_validation == "score":
+        _validate_numeric_series(y_score, y_score_col)
+    elif score_validation == "label":
+        _validate_binary_labels(y_score, y_score_col)
+    elif score_validation in ("probability", "none"):
+        if score_validation == "probability":
+            _validate_probability_series(y_score, y_score_col)
 
     subgroup = None
     if subgroup_col:

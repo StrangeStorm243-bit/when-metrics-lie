@@ -1,0 +1,28 @@
+{
+    "name": "demo_surface_score",
+    "task": "binary_classification",
+    "dataset": {
+        "source": "csv",
+        "path": "examples/data/surface_score.csv",
+        "y_true_col": "y_true",
+        "y_score_col": "y_score",
+        "subgroup_col": "group"
+    },
+    "metric": "auc",
+    "surface_source": {
+        "kind": "csv_columns",
+        "surface_type": "score",
+        "positive_label": 1
+    },
+    "scenarios": [
+        { "id": "score_noise", "params": { "sigma": 0.1 } },
+        { "id": "class_imbalance", "params": { "target_pos_rate": 0.3, "max_remove_frac": 0.6 } },
+        { "id": "label_noise", "params": { "p": 0.05 } }
+    ],
+    "n_trials": 50,
+    "seed": 123,
+    "tags": {
+        "owner": "local",
+        "purpose": "phase9_surface_score_example"
+    }
+}

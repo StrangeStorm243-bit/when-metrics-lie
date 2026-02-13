@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 from typing import Any
 
@@ -58,6 +59,15 @@ from metrics_lie.runner import RunConfig, run_scenarios
 from metrics_lie.scenarios.base import ScenarioContext
 from metrics_lie.scenarios.registry import create_scenario
 
+logger = logging.getLogger(__name__)
+
+# Scenario compatibility by surface type (Phase 9B). Only applied when surface_source is set.
+SCENARIO_SURFACE_COMPAT: dict[SurfaceType, set[str]] = {
+    SurfaceType.PROBABILITY: {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"},
+    SurfaceType.SCORE: {"label_noise", "score_noise", "class_imbalance"},
+    SurfaceType.LABEL: {"label_noise", "class_imbalance"},
+}
+
 
 def _summary_from_single_value(v: float) -> MetricSummary:
     # Baseline is a single deterministic value (Phase 1.3/1.4)
@@ -99,6 +109,9 @@ def run_from_spec_dict(
     # Load dataset. If model_source is provided, require features.
     require_features = spec.model_source is not None
     allow_missing_score = spec.model_source is not None
+    score_validation = (
+        spec.surface_source.surface_type if spec.surface_source else "probability"
+    )
     ds = load_binary_csv(
         path=spec.dataset.path,
         y_true_col=spec.dataset.y_true_col,
@@ -107,6 +120,7 @@ def run_from_spec_dict(
         feature_cols=spec.dataset.feature_cols,
         require_features=require_features,
         allow_missing_score=allow_missing_score,
+        score_validation=score_validation,
     )
 
     y_true = ds.y_true.to_numpy(dtype=int)
@@ -163,8 +177,13 @@ def run_from_spec_dict(
             validate_surface,
         )
 
-        # Create PredictionSurface directly from y_score column.
-        surface_type_enum = SurfaceType.PROBABILITY
+        # Map spec surface_type to enum (Phase 9A: score; 9B: label).
+        _SURFACE_TYPE_MAP = {
+            "probability": SurfaceType.PROBABILITY,
+            "score": SurfaceType.SCORE,
+            "label": SurfaceType.LABEL,
+        }
+        surface_type_enum = _SURFACE_TYPE_MAP[spec.surface_source.surface_type]
         validated_values = validate_surface(
             surface_type=surface_type_enum,
             values=y_score,
@@ -218,6 +237,20 @@ def run_from_spec_dict(
     if primary_metric is None:
         raise ValueError("No applicable metrics available for this surface.")
 
+    # Phase 9B: filter scenarios by surface compatibility when using surface_source.
+    if spec.surface_source is not None:
+        allowed = SCENARIO_SURFACE_COMPAT[surface_type]
+        effective_scenarios = [s for s in spec.scenarios if s.id in allowed]
+        skipped = [s.id for s in spec.scenarios if s.id not in allowed]
+        if skipped:
+            logger.warning(
+                "Skipping scenarios not compatible with surface_type=%s: %s",
+                surface_type.value,
+                skipped,
+            )
+    else:
+        effective_scenarios = spec.scenarios
+
     metric_results: dict[str, MetricSummary] = {}
     scenario_results_by_metric: dict[str, list[ScenarioResult]] = {}
 
@@ -235,7 +268,7 @@ def run_from_spec_dict(
             y_score=y_score,
             metric_name=metric_id,
             metric_fn=metric_fn,
-            scenario_specs=[s.model_dump() for s in spec.scenarios],
+            scenario_specs=[s.model_dump() for s in effective_scenarios],
             cfg=RunConfig(n_trials=spec.n_trials, seed=spec.seed),
             ctx=ScenarioContext(task=spec.task, surface_type=surface_type.value),
             subgroup=subgroup,
@@ -461,7 +494,8 @@ def run_from_spec_dict(
         analysis_artifacts: dict[str, Any] = {}
         if (
             prediction_surface is not None
-            and prediction_surface.surface_type == SurfaceType.PROBABILITY
+            and prediction_surface.surface_type
+            in (SurfaceType.PROBABILITY, SurfaceType.SCORE)
         ):
             sweep = run_threshold_sweep(
                 y_true=y_true,
@@ -489,6 +523,20 @@ def run_from_spec_dict(
             analysis_artifacts["metric_disagreements"] = [
                 d.to_jsonable() for d in disagreements
             ]
+            failures = locate_failure_modes(
+                y_true=y_true,
+                surface=prediction_surface,
+                metrics=applicable.metrics,
+                subgroup=subgroup,
+                top_k=20,
+            )
+            analysis_artifacts["failure_modes"] = failures.to_jsonable()
+        elif (
+            prediction_surface is not None
+            and prediction_surface.surface_type
+            in (SurfaceType.SCORE, SurfaceType.LABEL)
+        ):
+            # failure_modes supports SCORE/LABEL via else branch; no sweep/sensitivity.
             failures = locate_failure_modes(
                 y_true=y_true,
                 surface=prediction_surface,
