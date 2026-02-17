@@ -7,6 +7,13 @@ from typing import Literal, Optional
 import numpy as np
 import pandas as pd
 
+from metrics_lie.validation import (
+    validate_binary_labels,
+    validate_no_inf,
+    validate_no_nan,
+    validate_probability_range,
+)
+
 
 @dataclass(frozen=True)
 class LoadedBinaryDataset:
@@ -18,31 +25,24 @@ class LoadedBinaryDataset:
 
 
 def _validate_probability_series(s: pd.Series, name: str) -> None:
-    if s.isna().any():
-        raise ValueError(f"{name} contains NaNs.")
-    if ((s < 0) | (s > 1)).any():
-        bad = s[(s < 0) | (s > 1)].head(5).tolist()
-        raise ValueError(f"{name} must be in [0, 1]. Example bad values: {bad}")
+    arr = np.asarray(s, dtype=float)
+    validate_probability_range(arr, name)
 
 
 def _validate_numeric_series(s: pd.Series, name: str) -> None:
     """Require numeric dtype, no NaN, no Inf (for score surfaces)."""
     if not pd.api.types.is_numeric_dtype(s):
         raise ValueError(f"{name} must be numeric. Got dtype: {s.dtype}")
-    if s.isna().any():
-        raise ValueError(f"{name} contains NaNs.")
-    if np.isinf(s).any():
-        raise ValueError(f"{name} contains Inf values.")
+    arr = np.asarray(s, dtype=float)
+    validate_no_nan(arr, name)
+    validate_no_inf(arr, name)
 
 
 def _validate_binary_labels(s: pd.Series, name: str) -> None:
     if s.isna().any():
         raise ValueError(f"{name} contains NaNs.")
-    uniq = set(s.unique().tolist())
-    if not uniq.issubset({0, 1, False, True}):
-        raise ValueError(
-            f"{name} must be binary (0/1). Found unique values: {sorted(list(uniq))}"
-        )
+    arr = np.asarray(s)
+    validate_binary_labels(arr, name)
 
 
 def load_binary_csv(

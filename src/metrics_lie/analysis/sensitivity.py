@@ -4,32 +4,9 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from metrics_lie.metrics.core import (
-    metric_accuracy,
-    metric_f1,
-    metric_logloss,
-    metric_matthews_corrcoef,
-    metric_precision,
-    metric_pr_auc,
-    metric_recall,
-    metric_auc,
-)
-from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
+from metrics_lie.metrics.core import METRICS, compute_metric
 from metrics_lie.model.surface import PredictionSurface, SurfaceType
-
-
-METRIC_FUNCS = {
-    "accuracy": metric_accuracy,
-    "f1": metric_f1,
-    "precision": metric_precision,
-    "recall": metric_recall,
-    "matthews_corrcoef": metric_matthews_corrcoef,
-    "auc": metric_auc,
-    "pr_auc": metric_pr_auc,
-    "logloss": metric_logloss,
-    "brier_score": brier_score,
-    "ece": expected_calibration_error,
-}
+from metrics_lie.surface_compat import DEFAULT_THRESHOLD
 
 
 @dataclass(frozen=True)
@@ -88,21 +65,12 @@ def run_sensitivity_analysis(
                 raise ValueError(f"Unknown perturbation_type: {perturbation_type}")
 
             for metric_id in metrics:
-                fn = METRIC_FUNCS.get(metric_id)
+                fn = METRICS.get(metric_id)
                 if fn is None:
                     continue
-                if metric_id in {
-                    "accuracy",
-                    "f1",
-                    "precision",
-                    "recall",
-                    "matthews_corrcoef",
-                }:
-                    val = fn(y_true, noisy, threshold=0.5)
-                elif metric_id == "ece":
-                    val = fn(y_true, noisy, n_bins=10)
-                else:
-                    val = fn(y_true, noisy)
+                val = compute_metric(
+                    metric_id, fn, y_true, noisy, threshold=DEFAULT_THRESHOLD
+                )
                 per_metric_vals[metric_id].append(float(val))
 
         for metric_id, vals in per_metric_vals.items():

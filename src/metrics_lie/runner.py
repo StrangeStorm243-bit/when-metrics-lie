@@ -18,6 +18,8 @@ from metrics_lie.diagnostics.subgroups import (
 from metrics_lie.schema import MetricSummary, ScenarioResult
 from metrics_lie.scenarios.base import ScenarioContext
 from metrics_lie.scenarios.registry import create_scenario
+from metrics_lie.metrics.core import compute_metric
+from metrics_lie.surface_compat import DEFAULT_THRESHOLD
 
 
 def summarize(values: list[float]) -> MetricSummary:
@@ -76,10 +78,9 @@ def run_scenarios(
 
         for _ in range(cfg.n_trials):
             y_p, s_p = scenario.apply(y_true, y_score, rng, ctx)
-            if metric_name == "accuracy":
-                v = metric_fn(y_p, s_p, threshold=0.5)
-            else:
-                v = metric_fn(y_p, s_p)
+            v = compute_metric(
+                metric_name, metric_fn, y_p, s_p, threshold=DEFAULT_THRESHOLD
+            )
             vals.append(float(v))
             if ctx.surface_type == "probability":
                 briers.append(brier_score(y_p, s_p))
@@ -88,7 +89,7 @@ def run_scenarios(
             # Metric gaming: threshold optimization (only for accuracy)
             if metric_name == "accuracy":
                 thresholds = np.linspace(0.05, 0.95, 19)
-                baseline_acc = accuracy_at_threshold(y_p, s_p, 0.5)
+                baseline_acc = accuracy_at_threshold(y_p, s_p, DEFAULT_THRESHOLD)
                 opt_thresh, opt_acc = find_optimal_threshold(y_p, s_p, thresholds)
                 baseline_accs.append(baseline_acc)
                 optimized_accs.append(opt_acc)

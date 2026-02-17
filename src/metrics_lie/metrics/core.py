@@ -73,6 +73,33 @@ def metric_ece(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(expected_calibration_error(y_true, y_score, n_bins=10))
 
 
+# Metric category sets (canonical source of truth).
+# Threshold metrics require a decision threshold to produce binary predictions.
+THRESHOLD_METRICS: set[str] = {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}
+# Calibration metrics measure probability calibration quality.
+CALIBRATION_METRICS: set[str] = {"brier_score", "ece"}
+# Ranking metrics evaluate score ordering without a threshold.
+RANKING_METRICS: set[str] = {"auc", "pr_auc", "logloss"}
+
+
+def compute_metric(
+    metric_id: str,
+    metric_fn: Callable[..., float],
+    y_true: np.ndarray,
+    y_score: np.ndarray,
+    *,
+    threshold: float = 0.5,
+) -> float:
+    """Call a metric function with the correct signature for its category.
+
+    Threshold metrics receive an explicit ``threshold`` parameter.
+    All other metrics are called with just (y_true, y_score).
+    """
+    if metric_id in THRESHOLD_METRICS:
+        return float(metric_fn(y_true, y_score, threshold=threshold))
+    return float(metric_fn(y_true, y_score))
+
+
 METRICS: Dict[str, Callable[..., float]] = {
     "auc": metric_auc,
     "logloss": metric_logloss,

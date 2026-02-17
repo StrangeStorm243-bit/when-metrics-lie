@@ -2,21 +2,15 @@
 
 import pickle
 import tempfile
-from datetime import datetime
 from pathlib import Path
 
 from metrics_lie.execution import run_from_spec_dict
 from metrics_lie.schema import ResultBundle
 from metrics_lie.utils.paths import get_run_dir
 
+from .bundle_transform import bundle_to_result_summary
 from .config import get_settings
-from .contracts import (
-    ComponentScore,
-    ExperimentCreateRequest,
-    FindingFlag,
-    ResultSummary,
-    ScenarioResult as ContractScenarioResult,
-)
+from .contracts import ExperimentCreateRequest, ResultSummary
 from .persistence import save_bundle
 
 
@@ -210,89 +204,6 @@ def _resolve_model_path(model_id: str, owner_id: str) -> tuple[str, str | None]:
     return str(pkl_path.resolve()), None
 
 
-def _bundle_to_result_summary(
-    bundle: ResultBundle, experiment_id: str, run_id: str
-) -> ResultSummary:
-    """Convert ResultBundle to ResultSummary."""
-    # Extract headline score from baseline
-    headline_score = bundle.baseline.mean if bundle.baseline else 0.0
-
-    # Convert scenario results
-    scenario_results = []
-    for sr in bundle.scenarios:
-        # Calculate delta: scenario mean - baseline mean
-        delta = sr.metric.mean - headline_score if bundle.baseline else 0.0
-        scenario_results.append(
-            ContractScenarioResult(
-                scenario_id=sr.scenario_id,
-                scenario_name=sr.scenario_id.replace("_", " ").title(),
-                delta=delta,
-                score=sr.metric.mean,
-                severity=None,  # Will be calculated in later phases
-                notes=None,
-            )
-        )
-
-    # Extract component scores from diagnostics
-    component_scores = []
-    # For Phase 3.2, extract basic diagnostics
-    if bundle.baseline:
-        baseline_diag = bundle.notes.get("baseline_diagnostics", {})
-        if "brier" in baseline_diag:
-            component_scores.append(
-                ComponentScore(
-                    name="brier_score",
-                    score=baseline_diag["brier"],
-                    weight=None,
-                    notes="Baseline Brier score",
-                )
-            )
-        if "ece" in baseline_diag:
-            component_scores.append(
-                ComponentScore(
-                    name="ece_score",
-                    score=baseline_diag["ece"],
-                    weight=None,
-                    notes="Baseline ECE",
-                )
-            )
-
-    # Extract flags from diagnostics
-    flags = []
-    # For Phase 3.2, add basic flags if diagnostics indicate issues
-    if bundle.baseline:
-        baseline_diag = bundle.notes.get("baseline_diagnostics", {})
-        if baseline_diag.get("ece", 0) > 0.1:
-            flags.append(
-                FindingFlag(
-                    code="high_ece",
-                    title="High Expected Calibration Error",
-                    detail=f"ECE is {baseline_diag.get('ece', 0):.4f}, indicating poor calibration",
-                    severity="warn",
-                )
-            )
-
-    # Phase 8: Extract dashboard_summary from analysis_artifacts if present
-    dashboard_summary = None
-    if bundle.analysis_artifacts and "dashboard_summary" in bundle.analysis_artifacts:
-        dashboard_summary = bundle.analysis_artifacts["dashboard_summary"]
-
-    return ResultSummary(
-        experiment_id=experiment_id,
-        run_id=run_id,
-        headline_score=headline_score,
-        weighted_score=None,  # Will be calculated with decision profiles in later phases
-        component_scores=component_scores,
-        scenario_results=scenario_results,
-        flags=flags,
-        prediction_surface=bundle.prediction_surface,
-        applicable_metrics=bundle.applicable_metrics,
-        analysis_artifacts=bundle.analysis_artifacts,
-        dashboard_summary=dashboard_summary,
-        generated_at=datetime.fromisoformat(bundle.created_at.replace("Z", "+00:00")),
-    )
-
-
 def run_experiment(
     create_req: ExperimentCreateRequest,
     experiment_id: str,
@@ -388,7 +299,7 @@ def run_experiment(
         save_bundle(experiment_id, run_id, bundle_json, owner_id=owner_id)
 
         # Convert to ResultSummary
-        return _bundle_to_result_summary(bundle, experiment_id, run_id)
+        return bundle_to_result_summary(bundle, experiment_id, run_id)
     finally:
         if temp_path_to_clean:
             import os

@@ -20,6 +20,11 @@ from metrics_lie.metrics.applicability import (
     MetricResolver,
 )
 from metrics_lie.model.surface import SurfaceType
+from metrics_lie.surface_compat import (
+    DEFAULT_THRESHOLD,
+    SURFACE_TYPE_MAP,
+    filter_compatible_scenarios,
+)
 from metrics_lie.analysis import (
     analyze_metric_disagreements,
     build_dashboard_summary,
@@ -28,7 +33,7 @@ from metrics_lie.analysis import (
     run_threshold_sweep,
 )
 from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
-from metrics_lie.metrics.core import METRICS
+from metrics_lie.metrics.core import METRICS, compute_metric
 from metrics_lie.schema import Artifact, MetricSummary, ResultBundle, ScenarioResult
 from metrics_lie.spec import load_experiment_spec
 from metrics_lie.utils.paths import get_run_dir
@@ -60,13 +65,6 @@ from metrics_lie.scenarios.base import ScenarioContext
 from metrics_lie.scenarios.registry import create_scenario
 
 logger = logging.getLogger(__name__)
-
-# Scenario compatibility by surface type (Phase 9B). Only applied when surface_source is set.
-SCENARIO_SURFACE_COMPAT: dict[SurfaceType, set[str]] = {
-    SurfaceType.PROBABILITY: {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"},
-    SurfaceType.SCORE: {"label_noise", "score_noise", "class_imbalance"},
-    SurfaceType.LABEL: {"label_noise", "class_imbalance"},
-}
 
 
 def _summary_from_single_value(v: float) -> MetricSummary:
@@ -152,7 +150,7 @@ def run_from_spec_dict(
 
         adapter = ModelAdapter(
             source,
-            threshold=spec.model_source.threshold or 0.5,
+            threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
             positive_label=spec.model_source.positive_label or 1,
             calibration_state=CalibrationState.UNKNOWN,
         )
@@ -178,12 +176,7 @@ def run_from_spec_dict(
         )
 
         # Map spec surface_type to enum (Phase 9A: score; 9B: label).
-        _SURFACE_TYPE_MAP = {
-            "probability": SurfaceType.PROBABILITY,
-            "score": SurfaceType.SCORE,
-            "label": SurfaceType.LABEL,
-        }
-        surface_type_enum = _SURFACE_TYPE_MAP[spec.surface_source.surface_type]
+        surface_type_enum = SURFACE_TYPE_MAP[spec.surface_source.surface_type]
         validated_values = validate_surface(
             surface_type=surface_type_enum,
             values=y_score,
@@ -239,9 +232,9 @@ def run_from_spec_dict(
 
     # Phase 9B: filter scenarios by surface compatibility when using surface_source.
     if spec.surface_source is not None:
-        allowed = SCENARIO_SURFACE_COMPAT[surface_type]
-        effective_scenarios = [s for s in spec.scenarios if s.id in allowed]
-        skipped = [s.id for s in spec.scenarios if s.id not in allowed]
+        effective_scenarios, skipped = filter_compatible_scenarios(
+            spec.scenarios, surface_type
+        )
         if skipped:
             logger.warning(
                 "Skipping scenarios not compatible with surface_type=%s: %s",
@@ -256,10 +249,9 @@ def run_from_spec_dict(
 
     for metric_id in applicable.metrics:
         metric_fn = METRICS[metric_id]
-        if metric_id in {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}:
-            baseline_value = metric_fn(y_true, y_score, threshold=0.5)
-        else:
-            baseline_value = metric_fn(y_true, y_score)
+        baseline_value = compute_metric(
+            metric_id, metric_fn, y_true, y_score, threshold=DEFAULT_THRESHOLD
+        )
         metric_results[metric_id] = _summary_from_single_value(baseline_value)
 
         # --- Phase 1.4: run scenario stress tests (Monte Carlo) ---
@@ -429,10 +421,10 @@ def run_from_spec_dict(
                         if len(y_p_rep) > 0 and len(s_p_rep) > 0:
                             # Get mean optimal threshold from diagnostics (approximate)
                             # Use a representative threshold from the inflation data
-                            baseline_thresh = 0.5
-                            # Estimate optimized threshold from delta (use 0.5 + small adjustment as proxy)
+                            baseline_thresh = DEFAULT_THRESHOLD
+                            # Estimate optimized threshold from delta (use DEFAULT_THRESHOLD + small adjustment as proxy)
                             # Actually, we need to recompute or store it - let's use a simple heuristic
-                            # For now, use 0.5 as baseline and compute optimal from representative trial
+                            # For now, use DEFAULT_THRESHOLD as baseline and compute optimal from representative trial
                             from metrics_lie.diagnostics.metric_gaming import (
                                 find_optimal_threshold,
                             )

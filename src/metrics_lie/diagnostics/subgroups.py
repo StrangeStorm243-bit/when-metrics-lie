@@ -4,6 +4,8 @@ from typing import Callable, Dict
 
 import numpy as np
 
+from metrics_lie.surface_compat import DEFAULT_THRESHOLD
+
 
 def group_indices(subgroup: np.ndarray) -> Dict[str, np.ndarray]:
     """
@@ -50,7 +52,7 @@ def safe_metric_for_group(
 
     try:
         if metric_name == "accuracy":
-            return metric_fn(y_true_g, y_score_g, threshold=0.5)
+            return metric_fn(y_true_g, y_score_g, threshold=DEFAULT_THRESHOLD)
         else:
             return metric_fn(y_true_g, y_score_g)
     except (ValueError, Exception):

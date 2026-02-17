@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, TypedDict
 from pydantic import BaseModel, Field
+
+
+class AnalysisArtifacts(TypedDict, total=False):
+    """Known keys produced by the analysis phase in execution.py."""
+
+    threshold_sweep: dict
+    sensitivity: dict
+    metric_disagreements: list
+    failure_modes: dict
+    dashboard_summary: dict
 
 
 class MetricSummary(BaseModel):

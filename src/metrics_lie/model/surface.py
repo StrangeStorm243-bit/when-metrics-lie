@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 
+from metrics_lie.validation import validate_binary_labels, validate_no_inf, validate_no_nan, validate_numeric_dtype
 from .errors import SurfaceValidationError
 
 
@@ -76,12 +77,12 @@ def validate_surface(
         raise SurfaceValidationError(
             f"surface length mismatch: expected {expected_n_samples}, got {arr.shape[0]}"
         )
-    if not np.issubdtype(arr.dtype, np.number):
-        raise SurfaceValidationError(f"surface dtype must be numeric. Got {arr.dtype}")
-    if np.isnan(arr).any():
-        raise SurfaceValidationError("surface values contain NaN")
-    if np.isinf(arr).any():
-        raise SurfaceValidationError("surface values contain Inf")
+    try:
+        validate_numeric_dtype(arr, "surface")
+        validate_no_nan(arr, "surface values")
+        validate_no_inf(arr, "surface values")
+    except ValueError as e:
+        raise SurfaceValidationError(str(e)) from e
 
     if surface_type == SurfaceType.PROBABILITY:
         if arr.ndim == 2 and arr.shape[1] != 2:
@@ -100,11 +101,10 @@ def validate_surface(
     elif surface_type == SurfaceType.LABEL:
         if arr.ndim != 1:
             raise SurfaceValidationError(f"label surface must be 1d. Got {arr.shape}")
-        uniq = set(np.unique(arr).tolist())
-        if not uniq.issubset({0, 1, False, True}):
-            raise SurfaceValidationError(
-                f"label surface must be binary (0/1). Found {sorted(list(uniq))}"
-            )
+        try:
+            validate_binary_labels(arr, "label surface")
+        except ValueError as e:
+            raise SurfaceValidationError(str(e)) from e
     else:
         if arr.ndim != 1:
             raise SurfaceValidationError(f"score surface must be 1d. Got {arr.shape}")

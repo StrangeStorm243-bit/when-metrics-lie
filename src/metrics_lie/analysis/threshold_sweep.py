@@ -4,35 +4,17 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
 from metrics_lie.metrics.core import (
-    metric_accuracy,
-    metric_f1,
-    metric_logloss,
-    metric_matthews_corrcoef,
-    metric_precision,
-    metric_pr_auc,
-    metric_recall,
-    metric_auc,
+    METRICS,
+    THRESHOLD_METRICS,
+    CALIBRATION_METRICS,
+    RANKING_METRICS,
 )
 from metrics_lie.model.surface import PredictionSurface, SurfaceType
+from metrics_lie.surface_compat import DEFAULT_THRESHOLD
 
-
-THRESHOLD_METRICS = {
-    "accuracy": metric_accuracy,
-    "f1": metric_f1,
-    "precision": metric_precision,
-    "recall": metric_recall,
-    "matthews_corrcoef": metric_matthews_corrcoef,
-}
-
-SCORE_METRICS = {
-    "auc": metric_auc,
-    "pr_auc": metric_pr_auc,
-    "logloss": metric_logloss,
-    "brier_score": brier_score,
-    "ece": expected_calibration_error,
-}
+# Score-based metrics that don't use a threshold (union of ranking + calibration).
+SCORE_METRIC_IDS: set[str] = RANKING_METRICS | CALIBRATION_METRICS
 
 
 @dataclass(frozen=True)
@@ -82,19 +64,18 @@ def run_threshold_sweep(
     optimal_thresholds: dict[str, float] = {}
 
     for metric_id in metrics:
+        fn = METRICS.get(metric_id)
+        if fn is None:
+            continue
         if metric_id in THRESHOLD_METRICS:
-            fn = THRESHOLD_METRICS[metric_id]
             vals = [fn(y_true, surface.values, threshold=t) for t in thresholds]
             curves[metric_id] = np.array(vals, dtype=float)
             best_idx = int(np.argmax(curves[metric_id]))
             optimal_thresholds[metric_id] = float(thresholds[best_idx])
-        elif metric_id in SCORE_METRICS and surface.surface_type == SurfaceType.PROBABILITY:
-            if metric_id == "ece":
-                v = SCORE_METRICS[metric_id](y_true, surface.values, n_bins=10)
-            else:
-                v = SCORE_METRICS[metric_id](y_true, surface.values)
+        elif metric_id in SCORE_METRIC_IDS and surface.surface_type == SurfaceType.PROBABILITY:
+            v = fn(y_true, surface.values)
             curves[metric_id] = np.full_like(thresholds, float(v), dtype=float)
-            optimal_thresholds[metric_id] = float(surface.threshold or 0.5)
+            optimal_thresholds[metric_id] = float(surface.threshold or DEFAULT_THRESHOLD)
 
     crossover_points: list[dict] = []
     metric_ids = [m for m in metrics if m in THRESHOLD_METRICS]
