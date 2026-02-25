@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find:*)",
+      "Bash(cp:*)",
+      "Skill(gsd:progress)",
+      "Skill(gsd:new-project)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(cd /c/GitHubProjects/when-metrics-lie && python -c \"from metrics_lie import __version__; print\\(__version__\\)\" 2>&1)",
+      "Bash(cd:*)"
+    ]
+  }
+}
