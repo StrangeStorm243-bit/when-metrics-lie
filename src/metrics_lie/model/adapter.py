@@ -5,9 +5,11 @@ from typing import Any, Callable
 
 import numpy as np
 
-from .errors import CapabilityError, ModelNotFittedError
-from .sources import ModelSource, ModelSourceCallable, load_model
-from .surface import CalibrationState, PredictionSurface, SurfaceType, validate_surface
+from metrics_lie.model.errors import CapabilityError, ModelNotFittedError
+from metrics_lie.model.metadata import ModelMetadata
+from metrics_lie.model.sources import ModelSource, ModelSourceCallable, load_model
+from metrics_lie.model.surface import CalibrationState, PredictionSurface, SurfaceType, validate_surface
+from metrics_lie.task_types import TaskType
 
 
 @dataclass(frozen=True)
@@ -18,7 +20,7 @@ class ModelAdapterReport:
     capabilities: dict[str, bool]
 
 
-class ModelAdapter:
+class SklearnAdapter:
     def __init__(
         self,
         source: ModelSource,
@@ -176,3 +178,35 @@ class ModelAdapter:
         if caps.get("decision_function"):
             surfaces[SurfaceType.SCORE] = self.decision_function(X)
         return surfaces
+
+    @property
+    def task_type(self) -> TaskType:
+        return TaskType.BINARY_CLASSIFICATION
+
+    @property
+    def metadata(self) -> ModelMetadata:
+        caps = self.detect_capabilities()
+        cap_set = {k for k, v in caps.items() if v}
+        fmt = "callable" if isinstance(self._source, ModelSourceCallable) else "pickle"
+        return ModelMetadata(
+            model_class=self._model.__class__.__name__,
+            model_module=getattr(self._model, "__module__", "unknown"),
+            model_format=fmt,
+            model_hash=self._model_hash,
+            capabilities=cap_set,
+        )
+
+    def predict_raw(self, X: np.ndarray) -> dict[str, Any]:
+        surfaces = self.get_all_surfaces(X)
+        result: dict[str, Any] = {}
+        if SurfaceType.PROBABILITY in surfaces:
+            result["probabilities"] = surfaces[SurfaceType.PROBABILITY].values
+        if SurfaceType.LABEL in surfaces:
+            result["labels"] = surfaces[SurfaceType.LABEL].values
+        if SurfaceType.SCORE in surfaces:
+            result["scores"] = surfaces[SurfaceType.SCORE].values
+        return result
+
+
+# Backward compatibility alias
+ModelAdapter = SklearnAdapter
