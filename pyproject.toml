@@ -41,8 +41,11 @@ boosting = [
 fairness = [
   "fairlearn>=0.10"
 ]
+drift = [
+  "evidently>=0.4"
+]
 all = [
-  "metrics_lie[dev,web,onnx,boosting,fairness]"
+  "metrics_lie[dev,web,onnx,boosting,fairness,drift]"
 ]
 
 [project.scripts]
