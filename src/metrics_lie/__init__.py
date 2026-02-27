@@ -8,6 +8,7 @@ from metrics_lie.schema import ResultBundle
 from metrics_lie.spec import ExperimentSpec
 from metrics_lie import presets
 from metrics_lie.catalog import list_metrics, list_model_formats, list_scenarios
+from metrics_lie.display import display, format_comparison, format_summary
 
 __all__ = [
     "__version__",
@@ -21,4 +22,7 @@ __all__ = [
     "list_metrics",
     "list_scenarios",
     "list_model_formats",
+    "display",
+    "format_summary",
+    "format_comparison",
 ]
