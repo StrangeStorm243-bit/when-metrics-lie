@@ -15,6 +15,7 @@ SURFACE_TYPE_MAP: dict[str, SurfaceType] = {
     "probability": SurfaceType.PROBABILITY,
     "score": SurfaceType.SCORE,
     "label": SurfaceType.LABEL,
+    "continuous": SurfaceType.CONTINUOUS,
 }
 
 # Phase 9B: scenario compatibility by surface type.
@@ -28,6 +29,7 @@ SCENARIO_SURFACE_COMPAT: dict[SurfaceType, set[str]] = {
     },
     SurfaceType.SCORE: {"label_noise", "score_noise", "class_imbalance"},
     SurfaceType.LABEL: {"label_noise", "class_imbalance"},
+    SurfaceType.CONTINUOUS: {"label_noise", "score_noise"},
 }
 
 DEFAULT_THRESHOLD: float = 0.5

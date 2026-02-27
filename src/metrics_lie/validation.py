@@ -37,6 +37,11 @@ def validate_binary_labels(values: np.ndarray, name: str) -> None:
         )
 
 
+def validate_labels(values: np.ndarray, name: str) -> None:
+    """Raise ValueError if *values* contains NaN. Accepts any integer labels."""
+    validate_no_nan(values, name)
+
+
 def validate_probability_range(values: np.ndarray, name: str) -> None:
     """Raise ValueError if *values* has entries outside [0, 1]."""
     validate_no_nan(values, name)

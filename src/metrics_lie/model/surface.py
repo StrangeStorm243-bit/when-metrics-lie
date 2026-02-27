@@ -6,7 +6,7 @@ from typing import Any
 
 import numpy as np
 
-from metrics_lie.validation import validate_binary_labels, validate_no_inf, validate_no_nan, validate_numeric_dtype
+from metrics_lie.validation import validate_binary_labels, validate_labels, validate_no_inf, validate_no_nan, validate_numeric_dtype
 from .errors import SurfaceValidationError
 
 
@@ -14,6 +14,7 @@ class SurfaceType(str, Enum):
     LABEL = "label"
     PROBABILITY = "probability"
     SCORE = "score"
+    CONTINUOUS = "continuous"
 
 
 class CalibrationState(str, Enum):
@@ -67,6 +68,7 @@ def validate_surface(
     values: np.ndarray,
     expected_n_samples: int,
     threshold: float | None,
+    enforce_binary: bool = True,
 ) -> np.ndarray:
     arr = np.asarray(values)
     if arr.ndim not in (1, 2):
@@ -101,15 +103,24 @@ def validate_surface(
     elif surface_type == SurfaceType.LABEL:
         if arr.ndim != 1:
             raise SurfaceValidationError(f"label surface must be 1d. Got {arr.shape}")
-        try:
-            validate_binary_labels(arr, "label surface")
-        except ValueError as e:
-            raise SurfaceValidationError(str(e)) from e
+        if enforce_binary:
+            try:
+                validate_binary_labels(arr, "label surface")
+            except ValueError as e:
+                raise SurfaceValidationError(str(e)) from e
+        else:
+            try:
+                validate_labels(arr, "label surface")
+            except ValueError as e:
+                raise SurfaceValidationError(str(e)) from e
+    elif surface_type == SurfaceType.CONTINUOUS:
+        if arr.ndim != 1:
+            raise SurfaceValidationError(f"continuous surface must be 1d. Got {arr.shape}")
     else:
         if arr.ndim != 1:
             raise SurfaceValidationError(f"score surface must be 1d. Got {arr.shape}")
 
-    if surface_type != SurfaceType.PROBABILITY and threshold is not None:
+    if surface_type not in (SurfaceType.PROBABILITY, SurfaceType.CONTINUOUS) and threshold is not None:
         raise SurfaceValidationError("threshold is only valid for probability surfaces")
 
     return arr
