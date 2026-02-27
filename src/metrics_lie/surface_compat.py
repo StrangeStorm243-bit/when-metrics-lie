@@ -50,3 +50,28 @@ def filter_compatible_scenarios(
     compatible = [s for s in scenarios if s.id in allowed]
     skipped = [s.id for s in scenarios if s.id not in allowed]
     return compatible, skipped
+
+
+# Task-type compatibility: which scenarios apply to each task type.
+SCENARIO_TASK_COMPAT: dict[str, set[str]] = {
+    "binary_classification": {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"},
+    "multiclass_classification": {"label_noise", "score_noise", "class_imbalance"},
+    "multilabel_classification": {"label_noise", "class_imbalance"},
+    "regression": {"label_noise", "score_noise"},
+    "ranking": {"label_noise", "score_noise"},
+}
+
+
+def filter_compatible_scenarios_by_task(
+    scenarios: Sequence[Any],
+    task_type: str,
+) -> tuple[list[Any], list[str]]:
+    """Filter scenarios by task-type compatibility.
+
+    Returns:
+        (compatible_scenarios, skipped_scenario_ids)
+    """
+    allowed = SCENARIO_TASK_COMPAT.get(task_type, set())
+    compatible = [s for s in scenarios if s.id in allowed]
+    skipped = [s.id for s in scenarios if s.id not in allowed]
+    return compatible, skipped
