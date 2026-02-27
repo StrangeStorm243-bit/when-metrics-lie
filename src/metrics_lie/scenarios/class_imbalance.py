@@ -31,6 +31,15 @@ class ClassImbalanceScenario:
         if n == 0:
             return y_true, y_score
 
+        # Regression: class_imbalance is not applicable
+        if ctx.task == "regression":
+            return y_true, y_score
+
+        # Multiclass: subsample the largest class
+        if ctx.task == "multiclass_classification":
+            return self._apply_multiclass(y_true, y_score, rng)
+
+        # Binary classification (original behavior)
         pos_mask = y_true == 1
         n_pos = int(pos_mask.sum())
         n_neg = n - n_pos
@@ -69,6 +78,35 @@ class ClassImbalanceScenario:
             # Already at target
             return y_true, y_score
 
+        return y_true[keep_mask], y_score[keep_mask]
+
+    def _apply_multiclass(
+        self,
+        y_true: np.ndarray,
+        y_score: np.ndarray,
+        rng: np.random.Generator,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Subsample the largest class to create imbalance."""
+        classes, counts = np.unique(y_true, return_counts=True)
+        if len(classes) < 2:
+            return y_true, y_score
+
+        largest_class = classes[np.argmax(counts)]
+        largest_count = int(np.max(counts))
+        n = len(y_true)
+
+        target_count = max(1, int(round(self.target_pos_rate * n)))
+        remove_count = largest_count - target_count
+        max_remove = int(largest_count * self.max_remove_frac)
+        remove_count = min(remove_count, max_remove)
+
+        if remove_count <= 0:
+            return y_true, y_score
+
+        class_indices = np.where(y_true == largest_class)[0]
+        remove_indices = rng.choice(class_indices, size=remove_count, replace=False)
+        keep_mask = np.ones(n, dtype=bool)
+        keep_mask[remove_indices] = False
         return y_true[keep_mask], y_score[keep_mask]
 
     def describe(self) -> Dict[str, Any]:
