@@ -52,7 +52,7 @@ class ResultBundle(BaseModel):
     Single authoritative output JSON for one run.
     """
 
-    schema_version: str = "0.1"
+    schema_version: str = "0.2"
     run_id: str
     created_at: str = Field(
         default_factory=lambda: datetime.now(timezone.utc).isoformat()
@@ -60,6 +60,7 @@ class ResultBundle(BaseModel):
 
     experiment_name: str
     metric_name: str
+    task_type: str = "binary_classification"
 
     baseline: Optional[MetricSummary] = None
     scenarios: List[ScenarioResult] = Field(default_factory=list)
