@@ -13,6 +13,7 @@ class DatasetProperties:
     n_negative: int
     has_subgroups: bool
     positive_rate: float
+    n_classes: int | None = None
 
 
 @dataclass(frozen=True)
@@ -49,6 +50,9 @@ class MetricResolver:
         )
 
         for req in self._requirements:
+            if req.task_types is not None and task_type not in req.task_types:
+                excluded.append((req.metric_id, f"not applicable to task_type={task_type}"))
+                continue
             if surface_type not in req.requires_surface:
                 excluded.append(
                     (
@@ -57,8 +61,10 @@ class MetricResolver:
                     )
                 )
                 continue
-            if req.requires_both_classes and (
-                dataset_props.n_positive == 0 or dataset_props.n_negative == 0
+            if (
+                task_type == "binary_classification"
+                and req.requires_both_classes
+                and (dataset_props.n_positive == 0 or dataset_props.n_negative == 0)
             ):
                 excluded.append((req.metric_id, "requires both classes"))
                 continue
@@ -71,7 +77,14 @@ class MetricResolver:
 
         if dataset_props.n_samples < 30:
             warnings.append("low_sample_warning")
-        if dataset_props.positive_rate < 0.05 or dataset_props.positive_rate > 0.95:
+        is_classification = task_type in (
+            "binary_classification",
+            "multiclass_classification",
+            "multilabel_classification",
+        )
+        if is_classification and (
+            dataset_props.positive_rate < 0.05 or dataset_props.positive_rate > 0.95
+        ):
             warnings.append("severe_imbalance_warning")
             if (
                 "pr_auc" not in metrics
