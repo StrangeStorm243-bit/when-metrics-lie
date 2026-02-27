@@ -28,6 +28,18 @@ web = [
   "uvicorn[standard]>=0.24.0",
   "requests>=2.31.0"
 ]
+onnx = [
+  "onnxruntime>=1.16",
+  "skl2onnx>=1.16"
+]
+boosting = [
+  "xgboost>=2.0",
+  "lightgbm>=4.0",
+  "catboost>=1.2"
+]
+all = [
+  "metrics_lie[dev,web,onnx,boosting]"
+]
 
 [project.scripts]
 spectra = "metrics_lie.cli:main"
