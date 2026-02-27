@@ -1,34 +1,21 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
 
 from metrics_lie.model.surface import SurfaceType
 
 
-MetricId = Literal[
-    "accuracy",
-    "auc",
-    "pr_auc",
-    "f1",
-    "precision",
-    "recall",
-    "logloss",
-    "brier_score",
-    "ece",
-    "matthews_corrcoef",
-]
-
-
 @dataclass(frozen=True)
 class MetricRequirement:
-    metric_id: MetricId
+    metric_id: str
     requires_surface: set[SurfaceType]
     requires_labels: bool
     min_samples: int
     requires_both_classes: bool
+    task_types: frozenset[str] | None = None
 
 
+# --- Binary classification metrics ---
 METRIC_REQUIREMENTS: list[MetricRequirement] = [
     MetricRequirement(
         metric_id="accuracy",
@@ -36,6 +23,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="auc",
@@ -43,6 +31,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="pr_auc",
@@ -50,6 +39,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="f1",
@@ -57,6 +47,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="precision",
@@ -64,6 +55,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="recall",
@@ -71,6 +63,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="logloss",
@@ -78,6 +71,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="brier_score",
@@ -85,6 +79,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="ece",
@@ -92,6 +87,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
     ),
     MetricRequirement(
         metric_id="matthews_corrcoef",
@@ -99,5 +95,104 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         requires_labels=True,
         min_samples=1,
         requires_both_classes=True,
+        task_types=frozenset({"binary_classification"}),
+    ),
+    # --- Multiclass classification metrics ---
+    MetricRequirement(
+        metric_id="macro_f1",
+        requires_surface={SurfaceType.LABEL, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="weighted_f1",
+        requires_surface={SurfaceType.LABEL, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="macro_precision",
+        requires_surface={SurfaceType.LABEL, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="macro_recall",
+        requires_surface={SurfaceType.LABEL, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="macro_auc",
+        requires_surface={SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="cohens_kappa",
+        requires_surface={SurfaceType.LABEL, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    MetricRequirement(
+        metric_id="top_k_accuracy",
+        requires_surface={SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=True,
+        task_types=frozenset({"multiclass_classification"}),
+    ),
+    # --- Regression metrics ---
+    MetricRequirement(
+        metric_id="mae",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+    ),
+    MetricRequirement(
+        metric_id="mse",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+    ),
+    MetricRequirement(
+        metric_id="rmse",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+    ),
+    MetricRequirement(
+        metric_id="r2",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=2,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+    ),
+    MetricRequirement(
+        metric_id="max_error",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
     ),
 ]
