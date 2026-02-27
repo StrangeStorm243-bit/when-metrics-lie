@@ -13,6 +13,7 @@ class MetricRequirement:
     min_samples: int
     requires_both_classes: bool
     task_types: frozenset[str] | None = None
+    higher_is_better: bool = True
 
 
 # --- Binary classification metrics ---
@@ -72,6 +73,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=True,
         task_types=frozenset({"binary_classification"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="brier_score",
@@ -80,6 +82,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=True,
         task_types=frozenset({"binary_classification"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="ece",
@@ -88,6 +91,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=True,
         task_types=frozenset({"binary_classification"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="matthews_corrcoef",
@@ -162,6 +166,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=False,
         task_types=frozenset({"regression"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="mse",
@@ -170,6 +175,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=False,
         task_types=frozenset({"regression"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="rmse",
@@ -178,6 +184,7 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=False,
         task_types=frozenset({"regression"}),
+        higher_is_better=False,
     ),
     MetricRequirement(
         metric_id="r2",
@@ -194,5 +201,10 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         min_samples=1,
         requires_both_classes=False,
         task_types=frozenset({"regression"}),
+        higher_is_better=False,
     ),
 ]
+
+METRIC_DIRECTION: dict[str, bool] = {
+    r.metric_id: r.higher_is_better for r in METRIC_REQUIREMENTS
+}
