@@ -1,7 +1,7 @@
 """Tests for metric direction (higher_is_better) on MetricRequirement."""
 from __future__ import annotations
 import pytest
-from metrics_lie.metrics.registry import METRIC_REQUIREMENTS, MetricRequirement, METRIC_DIRECTION
+from metrics_lie.metrics.registry import METRIC_DIRECTION, METRIC_REQUIREMENTS
 
 HIGHER_IS_BETTER_METRICS = {
     "accuracy", "auc", "f1", "precision", "recall", "pr_auc",
