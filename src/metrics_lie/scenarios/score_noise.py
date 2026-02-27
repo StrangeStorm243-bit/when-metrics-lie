@@ -24,9 +24,13 @@ class ScoreNoiseScenario:
         if self.sigma < 0:
             raise ValueError("score_noise.sigma must be >= 0")
         s = y_score.astype(float).copy()
-        s = s + rng.normal(loc=0.0, scale=self.sigma, size=s.shape[0])
+        s = s + rng.normal(loc=0.0, scale=self.sigma, size=s.shape)
         if ctx.surface_type == "probability":
             s = np.clip(s, 0.0, 1.0)
+            if s.ndim == 2:
+                row_sums = s.sum(axis=1, keepdims=True)
+                row_sums = np.where(row_sums == 0, 1.0, row_sums)
+                s = s / row_sums
         return y_true, s
 
     def describe(self) -> Dict[str, Any]:
