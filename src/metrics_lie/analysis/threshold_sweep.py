@@ -41,7 +41,10 @@ def run_threshold_sweep(
     n_points: int = 101,
 ) -> ThresholdSweepResult:
     if surface.surface_type not in (SurfaceType.PROBABILITY, SurfaceType.SCORE):
-        raise ValueError("threshold sweep requires probability or score surface")
+        raise ValueError(
+            f"threshold sweep requires PROBABILITY or SCORE surface, "
+            f"got {surface.surface_type.value!r}"
+        )
 
     if surface.surface_type == SurfaceType.PROBABILITY:
         low, high = 0.0, 1.0

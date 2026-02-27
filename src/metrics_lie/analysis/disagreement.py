@@ -4,16 +4,8 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from metrics_lie.metrics.core import THRESHOLD_METRICS
 from metrics_lie.model.surface import PredictionSurface, SurfaceType
-
-
-THRESHOLD_METRICS = {
-    "accuracy",
-    "f1",
-    "precision",
-    "recall",
-    "matthews_corrcoef",
-}
 
 
 @dataclass(frozen=True)
