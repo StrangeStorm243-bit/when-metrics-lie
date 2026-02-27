@@ -49,14 +49,27 @@ def locate_failure_modes(
 
     if surface.surface_type == SurfaceType.PROBABILITY:
         prob = surface.values.astype(float)
-        contributions += np.abs(prob - y_true)
-        pred = (prob >= (surface.threshold or 0.5)).astype(int)
-        misclassified = pred != y_true
-        contributions += misclassified.astype(float)
+        if prob.ndim == 2:
+            # Multiclass: contribution = 1 - P(correct class)
+            y_int = y_true.astype(int)
+            correct_class_prob = prob[np.arange(n), y_int]
+            contributions += 1.0 - correct_class_prob
+            pred = np.argmax(prob, axis=1)
+            misclassified = pred != y_int
+            contributions += misclassified.astype(float)
+        else:
+            # Binary
+            contributions += np.abs(prob - y_true)
+            pred = (prob >= (surface.threshold or 0.5)).astype(int)
+            misclassified = pred != y_true
+            contributions += misclassified.astype(float)
     elif surface.surface_type == SurfaceType.LABEL:
         pred = surface.values.astype(int)
-        misclassified = pred != y_true
+        misclassified = pred != y_true.astype(int)
         contributions += misclassified.astype(float)
+    elif surface.surface_type == SurfaceType.CONTINUOUS:
+        preds = surface.values.astype(float)
+        contributions += np.abs(preds - y_true.astype(float))
     else:
         scores = surface.values.astype(float)
         contributions += np.abs(scores - np.mean(scores))
