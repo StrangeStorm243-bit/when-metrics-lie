@@ -23,9 +23,25 @@ class LabelNoiseScenario:
     ) -> tuple[np.ndarray, np.ndarray]:
         if not (0.0 <= self.p <= 0.5):
             raise ValueError("label_noise.p must be in [0, 0.5]")
+
         y = y_true.copy()
-        flips = rng.random(size=y.shape[0]) < self.p
-        y[flips] = 1 - y[flips]
+
+        if ctx.task == "regression":
+            std = float(np.std(y)) if np.std(y) > 0 else 1.0
+            noise = rng.normal(loc=0.0, scale=self.p * std, size=y.shape[0])
+            y = y.astype(float) + noise
+        elif ctx.task == "multiclass_classification":
+            classes = np.unique(y_true)
+            flips = rng.random(size=y.shape[0]) < self.p
+            for i in np.where(flips)[0]:
+                other_classes = classes[classes != y[i]]
+                if len(other_classes) > 0:
+                    y[i] = rng.choice(other_classes)
+        else:
+            # Binary classification (original behavior)
+            flips = rng.random(size=y.shape[0]) < self.p
+            y[flips] = 1 - y[flips]
+
         return y, y_score
 
     def describe(self) -> Dict[str, Any]:
