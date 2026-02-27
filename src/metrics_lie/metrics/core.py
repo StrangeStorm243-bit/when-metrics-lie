@@ -10,7 +10,11 @@ from sklearn.metrics import (
     f1_score,
     log_loss,
     matthews_corrcoef,
+    max_error as sklearn_max_error,
+    mean_absolute_error,
+    mean_squared_error,
     precision_score,
+    r2_score,
     recall_score,
     roc_auc_score,
     top_k_accuracy_score,
@@ -132,6 +136,34 @@ def metric_top_k_accuracy(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(top_k_accuracy_score(y_true, y_score, k=k))
 
 
+# --- Regression metric functions ---
+
+
+def metric_mae(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Mean absolute error."""
+    return float(mean_absolute_error(y_true, y_score))
+
+
+def metric_mse(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Mean squared error."""
+    return float(mean_squared_error(y_true, y_score))
+
+
+def metric_rmse(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Root mean squared error."""
+    return float(np.sqrt(mean_squared_error(y_true, y_score)))
+
+
+def metric_r2(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """R-squared (coefficient of determination)."""
+    return float(r2_score(y_true, y_score))
+
+
+def metric_max_error(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Maximum absolute error."""
+    return float(sklearn_max_error(y_true, y_score))
+
+
 # Metric category sets (canonical source of truth).
 # Threshold metrics require a decision threshold to produce binary predictions.
 THRESHOLD_METRICS: set[str] = {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}
@@ -144,6 +176,8 @@ MULTICLASS_METRICS: set[str] = {
     "macro_f1", "weighted_f1", "macro_precision", "macro_recall",
     "macro_auc", "cohens_kappa", "top_k_accuracy",
 }
+# Regression metrics (continuous predictions, no threshold concept).
+REGRESSION_METRICS: set[str] = {"mae", "mse", "rmse", "r2", "max_error"}
 
 
 def compute_metric(
@@ -182,4 +216,9 @@ METRICS: Dict[str, Callable[..., float]] = {
     "macro_auc": metric_macro_auc,
     "cohens_kappa": metric_cohens_kappa,
     "top_k_accuracy": metric_top_k_accuracy,
+    "mae": metric_mae,
+    "mse": metric_mse,
+    "rmse": metric_rmse,
+    "r2": metric_r2,
+    "max_error": metric_max_error,
 }

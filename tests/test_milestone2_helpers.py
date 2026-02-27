@@ -16,6 +16,7 @@ from metrics_lie.metrics.core import (
     CALIBRATION_METRICS,
     RANKING_METRICS,
     MULTICLASS_METRICS,
+    REGRESSION_METRICS,
     compute_metric,
 )
 from metrics_lie.model.surface import SurfaceType
@@ -175,13 +176,16 @@ def test_compute_metric_covers_all_known_metrics(_binary_data):
 
 def test_metric_categories_cover_all_metrics():
     """Every metric in METRICS must belong to exactly one category."""
-    all_categorized = THRESHOLD_METRICS | CALIBRATION_METRICS | RANKING_METRICS | MULTICLASS_METRICS
+    all_categorized = (
+        THRESHOLD_METRICS | CALIBRATION_METRICS | RANKING_METRICS
+        | MULTICLASS_METRICS | REGRESSION_METRICS
+    )
     assert all_categorized == set(METRICS.keys())
 
 
 def test_metric_categories_are_disjoint():
     """Categories must not overlap."""
-    all_sets = [THRESHOLD_METRICS, CALIBRATION_METRICS, RANKING_METRICS, MULTICLASS_METRICS]
+    all_sets = [THRESHOLD_METRICS, CALIBRATION_METRICS, RANKING_METRICS, MULTICLASS_METRICS, REGRESSION_METRICS]
     for i, a in enumerate(all_sets):
         for b in all_sets[i + 1:]:
             assert a & b == set()
