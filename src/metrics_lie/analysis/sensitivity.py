@@ -32,7 +32,7 @@ class SensitivityAnalysisResult:
 def _apply_score_noise(
     scores: np.ndarray, *, sigma: float, rng: np.random.Generator, clip: bool
 ) -> np.ndarray:
-    noisy = scores + rng.normal(loc=0.0, scale=sigma, size=scores.shape[0])
+    noisy = scores + rng.normal(loc=0.0, scale=sigma, size=scores.shape)
     if clip:
         noisy = np.clip(noisy, 0.0, 1.0)
     return noisy
@@ -55,12 +55,19 @@ def run_sensitivity_analysis(
         per_metric_vals: dict[str, list[float]] = {m: [] for m in metrics}
         for _ in range(n_trials):
             if perturbation_type == "score_noise":
+                clip = surface.surface_type == SurfaceType.PROBABILITY
                 noisy = _apply_score_noise(
                     surface.values,
                     sigma=mag,
                     rng=rng,
-                    clip=surface.surface_type == SurfaceType.PROBABILITY,
+                    clip=clip,
                 )
+                if surface.surface_type == SurfaceType.LABEL:
+                    noisy = np.clip(
+                        np.round(noisy),
+                        int(surface.values.min()),
+                        int(surface.values.max()),
+                    ).astype(int)
             else:
                 raise ValueError(f"Unknown perturbation_type: {perturbation_type}")
 
