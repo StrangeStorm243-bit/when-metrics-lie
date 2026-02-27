@@ -28,12 +28,14 @@ class SklearnAdapter:
         threshold: float = 0.5,
         positive_label: int = 1,
         calibration_state: CalibrationState = CalibrationState.UNKNOWN,
+        task_type: TaskType = TaskType.BINARY_CLASSIFICATION,
     ) -> None:
         self._source = source
         self._model, self._model_hash = load_model(source)
         self._threshold = float(threshold)
         self._positive_label = positive_label
         self._calibration_state = calibration_state
+        self._task_type = task_type
         self._enforce_cpu_only()
         self._ensure_fitted()
 
@@ -91,18 +93,41 @@ class SklearnAdapter:
         if not callable(getattr(model, "predict", None)):
             raise CapabilityError("Model does not implement predict()")
         raw = self._call(model.predict, X)
+
+        if self._task_type.is_regression:
+            arr = validate_surface(
+                surface_type=SurfaceType.CONTINUOUS,
+                values=raw,
+                expected_n_samples=X.shape[0],
+                threshold=None,
+            )
+            return PredictionSurface(
+                surface_type=SurfaceType.CONTINUOUS,
+                values=arr.astype(float),
+                dtype=arr.dtype,
+                n_samples=int(arr.shape[0]),
+                class_names=(),
+                positive_label=self._positive_label,
+                threshold=None,
+                calibration_state=self._calibration_state,
+                model_hash=self._model_hash,
+                is_deterministic=True,
+            )
+
+        enforce_binary = self._task_type.is_binary
         arr = validate_surface(
             surface_type=SurfaceType.LABEL,
             values=raw,
             expected_n_samples=X.shape[0],
             threshold=None,
+            enforce_binary=enforce_binary,
         )
         return PredictionSurface(
             surface_type=SurfaceType.LABEL,
             values=arr.astype(int),
             dtype=arr.dtype,
             n_samples=int(arr.shape[0]),
-            class_names=("negative", "positive"),
+            class_names=("negative", "positive") if enforce_binary else tuple(str(c) for c in sorted(np.unique(raw))),
             positive_label=self._positive_label,
             threshold=None,
             calibration_state=self._calibration_state,
@@ -125,18 +150,24 @@ class SklearnAdapter:
             expected_n_samples=X.shape[0],
             threshold=self._threshold,
         )
-        if arr.ndim == 2:
-            # Select column for positive label (default: column 1)
+
+        # For multiclass, keep the full probability matrix (2D).
+        # For binary, extract the positive class column.
+        if self._task_type.is_binary and arr.ndim == 2:
             pos_idx = 1 if arr.shape[1] > 1 else 0
             arr = arr[:, pos_idx]
+
+        n_classes = arr.shape[1] if arr.ndim == 2 else 2
+        class_names = tuple(str(i) for i in range(n_classes))
+
         return PredictionSurface(
             surface_type=SurfaceType.PROBABILITY,
             values=arr.astype(float),
             dtype=arr.dtype,
             n_samples=int(arr.shape[0]),
-            class_names=("negative", "positive"),
+            class_names=class_names,
             positive_label=self._positive_label,
-            threshold=self._threshold,
+            threshold=self._threshold if self._task_type.is_binary else None,
             calibration_state=self._calibration_state,
             model_hash=self._model_hash,
             is_deterministic=True,
@@ -171,17 +202,18 @@ class SklearnAdapter:
     def get_all_surfaces(self, X: np.ndarray) -> dict[SurfaceType, PredictionSurface]:
         surfaces: dict[SurfaceType, PredictionSurface] = {}
         caps = self.detect_capabilities()
-        if caps.get("predict_proba"):
+        if caps.get("predict_proba") and not self._task_type.is_regression:
             surfaces[SurfaceType.PROBABILITY] = self.predict_proba(X)
         if caps.get("predict"):
-            surfaces[SurfaceType.LABEL] = self.predict(X)
-        if caps.get("decision_function"):
+            ps = self.predict(X)
+            surfaces[ps.surface_type] = ps
+        if caps.get("decision_function") and self._task_type.is_binary:
             surfaces[SurfaceType.SCORE] = self.decision_function(X)
         return surfaces
 
     @property
     def task_type(self) -> TaskType:
-        return TaskType.BINARY_CLASSIFICATION
+        return self._task_type
 
     @property
     def metadata(self) -> ModelMetadata:

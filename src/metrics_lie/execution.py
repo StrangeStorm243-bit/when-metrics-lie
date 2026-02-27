@@ -13,7 +13,7 @@ from metrics_lie.artifacts.plots import (
     plot_subgroup_bars,
     plot_threshold_curve,
 )
-from metrics_lie.datasets.loaders import load_binary_csv
+from metrics_lie.datasets.loaders import load_binary_csv, load_dataset
 from metrics_lie.metrics.applicability import (
     ApplicableMetricSet,
     DatasetProperties,
@@ -25,6 +25,7 @@ from metrics_lie.surface_compat import (
     DEFAULT_THRESHOLD,
     SURFACE_TYPE_MAP,
     filter_compatible_scenarios,
+    filter_compatible_scenarios_by_task,
 )
 from metrics_lie.analysis import (
     analyze_metric_disagreements,
@@ -86,6 +87,7 @@ def run_from_spec_dict(
     and for `rerun` (from a stored spec_json snapshot in the DB).
     """
     spec = load_experiment_spec(spec_dict)
+    task_type = TaskType(spec.task)
 
     dataset_fp = dataset_fingerprint_csv(spec.dataset.path)
     exp_def = ExperimentDefinition.from_spec(spec, dataset_fingerprint=dataset_fp)
@@ -111,18 +113,31 @@ def run_from_spec_dict(
     score_validation = (
         spec.surface_source.surface_type if spec.surface_source else "probability"
     )
-    ds = load_binary_csv(
-        path=spec.dataset.path,
-        y_true_col=spec.dataset.y_true_col,
-        y_score_col=spec.dataset.y_score_col,
-        subgroup_col=spec.dataset.subgroup_col,
-        feature_cols=spec.dataset.feature_cols,
-        require_features=require_features,
-        allow_missing_score=allow_missing_score,
-        score_validation=score_validation,
-    )
 
-    y_true = ds.y_true.to_numpy(dtype=int)
+    if task_type.is_binary:
+        ds = load_binary_csv(
+            path=spec.dataset.path,
+            y_true_col=spec.dataset.y_true_col,
+            y_score_col=spec.dataset.y_score_col,
+            subgroup_col=spec.dataset.subgroup_col,
+            feature_cols=spec.dataset.feature_cols,
+            require_features=require_features,
+            allow_missing_score=allow_missing_score,
+            score_validation=score_validation,
+        )
+    else:
+        ds = load_dataset(
+            path=spec.dataset.path,
+            task_type=spec.task,
+            y_true_col=spec.dataset.y_true_col,
+            y_score_col=spec.dataset.y_score_col,
+            subgroup_col=spec.dataset.subgroup_col,
+            feature_cols=spec.dataset.feature_cols,
+            require_features=require_features,
+            allow_missing_score=allow_missing_score,
+        )
+
+    y_true = ds.y_true.to_numpy(dtype=float if task_type.is_regression else int)
     y_score = ds.y_score.to_numpy(dtype=float)
     subgroup = None
     if ds.subgroup is not None:
@@ -158,6 +173,7 @@ def run_from_spec_dict(
                 threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
                 positive_label=spec.model_source.positive_label or 1,
                 calibration_state=CalibrationState.UNKNOWN,
+                task_type=task_type,
             )
         elif kind == "http":
             from metrics_lie.model.adapters.http_adapter import HTTPAdapter
@@ -195,12 +211,16 @@ def run_from_spec_dict(
             raise ValueError(f"Unsupported model_source kind: {kind}")
 
         surfaces = adapter.get_all_surfaces(ds.X.to_numpy())
-        if SurfaceType.PROBABILITY in surfaces:
+        if task_type.is_regression and SurfaceType.CONTINUOUS in surfaces:
+            prediction_surface = surfaces[SurfaceType.CONTINUOUS]
+        elif SurfaceType.PROBABILITY in surfaces:
             prediction_surface = surfaces[SurfaceType.PROBABILITY]
         elif SurfaceType.SCORE in surfaces:
             prediction_surface = surfaces[SurfaceType.SCORE]
         elif SurfaceType.LABEL in surfaces:
             prediction_surface = surfaces[SurfaceType.LABEL]
+        elif SurfaceType.CONTINUOUS in surfaces:
+            prediction_surface = surfaces[SurfaceType.CONTINUOUS]
         else:
             raise ValueError("Model adapter produced no usable surfaces.")
         surface_type = prediction_surface.surface_type
@@ -239,13 +259,32 @@ def run_from_spec_dict(
     # Resolve applicable metrics based on surface type and dataset properties.
     # Triggered when model_source OR surface_source is present (multi-metric mode).
     if spec.model_source is not None or spec.surface_source is not None:
-        dataset_props = DatasetProperties(
-            n_samples=int(len(y_true)),
-            n_positive=int(np.sum(y_true == 1)),
-            n_negative=int(np.sum(y_true == 0)),
-            has_subgroups=subgroup is not None,
-            positive_rate=float(np.mean(y_true)) if len(y_true) > 0 else 0.0,
-        )
+        if task_type.is_regression:
+            dataset_props = DatasetProperties(
+                n_samples=int(len(y_true)),
+                n_positive=0,
+                n_negative=0,
+                has_subgroups=subgroup is not None,
+                positive_rate=0.0,
+            )
+        elif task_type.is_binary:
+            dataset_props = DatasetProperties(
+                n_samples=int(len(y_true)),
+                n_positive=int(np.sum(y_true == 1)),
+                n_negative=int(np.sum(y_true == 0)),
+                has_subgroups=subgroup is not None,
+                positive_rate=float(np.mean(y_true)) if len(y_true) > 0 else 0.0,
+            )
+        else:
+            # Multiclass / multilabel
+            dataset_props = DatasetProperties(
+                n_samples=int(len(y_true)),
+                n_positive=0,
+                n_negative=0,
+                has_subgroups=subgroup is not None,
+                positive_rate=0.0,
+                n_classes=int(len(np.unique(y_true))),
+            )
         resolver = MetricResolver()
         applicable = resolver.resolve(
             task_type=spec.task,
@@ -282,6 +321,17 @@ def run_from_spec_dict(
             )
     else:
         effective_scenarios = spec.scenarios
+
+    # Filter scenarios by task-type compatibility.
+    effective_scenarios, task_skipped = filter_compatible_scenarios_by_task(
+        effective_scenarios, spec.task
+    )
+    if task_skipped:
+        logger.warning(
+            "Skipping scenarios not compatible with task_type=%s: %s",
+            spec.task,
+            task_skipped,
+        )
 
     metric_results: dict[str, MetricSummary] = {}
     scenario_results_by_metric: dict[str, list[ScenarioResult]] = {}
@@ -324,7 +374,7 @@ def run_from_spec_dict(
         scenario_results_by_metric[metric_id] = scenario_results_with_diag
 
     baseline_cal = {}
-    if surface_type == SurfaceType.PROBABILITY:
+    if task_type.is_binary and surface_type == SurfaceType.PROBABILITY:
         baseline_cal = {
             "brier": brier_score(y_true, y_score),
             "ece": expected_calibration_error(y_true, y_score, n_bins=10),
@@ -392,32 +442,33 @@ def run_from_spec_dict(
             except Exception:
                 pass  # Skip if plot generation fails
 
-            # 2. Calibration curve (run one representative trial)
-            try:
-                scenario = create_scenario(scenario_id, sr.params)
-                y_p_rep, s_p_rep = scenario.apply(
-                    y_true,
-                    y_score,
-                    rng_artifacts,
-                    ScenarioContext(task=spec.task, surface_type=surface_type.value),
-                )
-                if len(y_p_rep) > 0 and len(s_p_rep) > 0:
-                    cal_path = paths.artifacts_dir / f"calibration_{scenario_id}.png"
-                    plot_calibration_curve(
-                        y_true=y_p_rep,
-                        y_score=s_p_rep,
-                        scenario_id=scenario_id,
-                        out_path=cal_path,
+            # 2. Calibration curve (only for binary classification)
+            if task_type.is_binary:
+                try:
+                    scenario = create_scenario(scenario_id, sr.params)
+                    y_p_rep, s_p_rep = scenario.apply(
+                        y_true,
+                        y_score,
+                        rng_artifacts,
+                        ScenarioContext(task=spec.task, surface_type=surface_type.value),
                     )
-                    artifacts_list.append(
-                        Artifact(
-                            kind="plot",
-                            path=f"artifacts/calibration_{scenario_id}.png",
-                            meta={"type": "calibration_curve"},
+                    if len(y_p_rep) > 0 and len(s_p_rep) > 0:
+                        cal_path = paths.artifacts_dir / f"calibration_{scenario_id}.png"
+                        plot_calibration_curve(
+                            y_true=y_p_rep,
+                            y_score=s_p_rep,
+                            scenario_id=scenario_id,
+                            out_path=cal_path,
                         )
-                    )
-            except Exception:
-                pass  # Skip if plot generation fails
+                        artifacts_list.append(
+                            Artifact(
+                                kind="plot",
+                                path=f"artifacts/calibration_{scenario_id}.png",
+                                meta={"type": "calibration_curve"},
+                            )
+                        )
+                except Exception:
+                    pass  # Skip if plot generation fails
 
             # 3. Subgroup metric bars (if subgroup diagnostics exist)
             try:
@@ -524,7 +575,8 @@ def run_from_spec_dict(
 
         analysis_artifacts: dict[str, Any] = {}
         if (
-            prediction_surface is not None
+            task_type.is_binary
+            and prediction_surface is not None
             and prediction_surface.surface_type
             in (SurfaceType.PROBABILITY, SurfaceType.SCORE)
         ):
@@ -565,9 +617,9 @@ def run_from_spec_dict(
         elif (
             prediction_surface is not None
             and prediction_surface.surface_type
-            in (SurfaceType.SCORE, SurfaceType.LABEL)
+            in (SurfaceType.SCORE, SurfaceType.LABEL, SurfaceType.CONTINUOUS)
         ):
-            # failure_modes supports SCORE/LABEL via else branch; no sweep/sensitivity.
+            # failure_modes supports SCORE/LABEL/CONTINUOUS via else branch; no sweep/sensitivity.
             failures = locate_failure_modes(
                 y_true=y_true,
                 surface=prediction_surface,
@@ -594,6 +646,7 @@ def run_from_spec_dict(
             run_id=run_id,
             experiment_name=spec.name,
             metric_name=primary_metric,
+            task_type=spec.task,
             baseline=_summary_from_single_value(baseline_value),
             scenarios=scenario_results_with_artifacts,
             prediction_surface=prediction_surface.to_jsonable()
