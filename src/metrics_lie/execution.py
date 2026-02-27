@@ -20,6 +20,7 @@ from metrics_lie.metrics.applicability import (
     MetricResolver,
 )
 from metrics_lie.model.surface import SurfaceType
+from metrics_lie.task_types import TaskType
 from metrics_lie.surface_compat import (
     DEFAULT_THRESHOLD,
     SURFACE_TYPE_MAP,
@@ -131,31 +132,69 @@ def run_from_spec_dict(
     prediction_surface = None
     surface_type = SurfaceType.PROBABILITY
     if spec.model_source is not None:
-        from metrics_lie.model.adapter import ModelAdapter
-        from metrics_lie.model.sources import ModelSourceImport, ModelSourcePickle
         from metrics_lie.model.surface import CalibrationState
 
         if ds.X is None:
             raise ValueError("Model inference requires feature columns in dataset.")
-        if spec.model_source.kind == "pickle":
-            if not spec.model_source.path:
-                raise ValueError("model_source.path is required for kind=pickle")
-            source = ModelSourcePickle(path=spec.model_source.path)
-        elif spec.model_source.kind == "import":
-            if not spec.model_source.import_path:
-                raise ValueError("model_source.import_path is required for kind=import")
-            source = ModelSourceImport(import_path=spec.model_source.import_path)
-        else:
-            raise ValueError(f"Unsupported model_source kind: {spec.model_source.kind}")
 
-        adapter = ModelAdapter(
-            source,
-            threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
-            positive_label=spec.model_source.positive_label or 1,
-            calibration_state=CalibrationState.UNKNOWN,
-        )
+        kind = spec.model_source.kind
+
+        if kind in ("pickle", "import"):
+            # Legacy sklearn path
+            from metrics_lie.model.adapter import SklearnAdapter
+            from metrics_lie.model.sources import ModelSourceImport, ModelSourcePickle
+
+            if kind == "pickle":
+                if not spec.model_source.path:
+                    raise ValueError("model_source.path is required for kind=pickle")
+                source = ModelSourcePickle(path=spec.model_source.path)
+            else:
+                if not spec.model_source.import_path:
+                    raise ValueError("model_source.import_path is required for kind=import")
+                source = ModelSourceImport(import_path=spec.model_source.import_path)
+
+            adapter = SklearnAdapter(
+                source,
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+                calibration_state=CalibrationState.UNKNOWN,
+            )
+        elif kind == "http":
+            from metrics_lie.model.adapters.http_adapter import HTTPAdapter
+
+            adapter = HTTPAdapter(
+                endpoint=spec.model_source.endpoint,
+                task_type=TaskType(spec.task),
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+            )
+        elif kind == "onnx":
+            from metrics_lie.model.adapters.onnx_adapter import ONNXAdapter
+
+            if not spec.model_source.path:
+                raise ValueError("model_source.path is required for kind=onnx")
+            adapter = ONNXAdapter(
+                path=spec.model_source.path,
+                task_type=TaskType(spec.task),
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+            )
+        elif kind in ("xgboost", "lightgbm", "catboost"):
+            from metrics_lie.model.adapters.boosting_adapter import BoostingAdapter
+
+            if not spec.model_source.path:
+                raise ValueError(f"model_source.path is required for kind={kind}")
+            adapter = BoostingAdapter(
+                path=spec.model_source.path,
+                framework=kind,
+                task_type=TaskType(spec.task),
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+            )
+        else:
+            raise ValueError(f"Unsupported model_source kind: {kind}")
+
         surfaces = adapter.get_all_surfaces(ds.X.to_numpy())
-        # Prefer probability surface when available.
         if SurfaceType.PROBABILITY in surfaces:
             prediction_surface = surfaces[SurfaceType.PROBABILITY]
         elif SurfaceType.SCORE in surfaces:
