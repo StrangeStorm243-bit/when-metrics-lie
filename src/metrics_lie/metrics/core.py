@@ -6,12 +6,14 @@ import numpy as np
 from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
+    cohen_kappa_score,
     f1_score,
     log_loss,
     matthews_corrcoef,
     precision_score,
     recall_score,
     roc_auc_score,
+    top_k_accuracy_score,
 )
 from metrics_lie.diagnostics.calibration import brier_score, expected_calibration_error
 
@@ -73,6 +75,53 @@ def metric_ece(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(expected_calibration_error(y_true, y_score, n_bins=10))
 
 
+# --- Multiclass metric functions ---
+
+
+def metric_macro_f1(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Macro-averaged F1. y_score = predicted class labels."""
+    y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+    return float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+
+
+def metric_weighted_f1(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Weighted-average F1. y_score = predicted class labels."""
+    y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+    return float(f1_score(y_true, y_pred, average="weighted", zero_division=0))
+
+
+def metric_macro_precision(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Macro-averaged precision. y_score = predicted class labels."""
+    y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+    return float(precision_score(y_true, y_pred, average="macro", zero_division=0))
+
+
+def metric_macro_recall(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Macro-averaged recall. y_score = predicted class labels."""
+    y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+    return float(recall_score(y_true, y_pred, average="macro", zero_division=0))
+
+
+def metric_macro_auc(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Macro-averaged AUC via One-vs-Rest. y_score = probability matrix (n, K)."""
+    return float(roc_auc_score(y_true, y_score, multi_class="ovr", average="macro"))
+
+
+def metric_cohens_kappa(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Cohen's kappa coefficient. y_score = predicted class labels."""
+    y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+    return float(cohen_kappa_score(y_true, y_pred))
+
+
+def metric_top_k_accuracy(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Top-2 accuracy. y_score = probability matrix (n, K)."""
+    k = min(2, y_score.shape[1]) if y_score.ndim == 2 else 1
+    if k <= 1 or y_score.ndim == 1:
+        y_pred = y_score.astype(int) if y_score.ndim == 1 else np.argmax(y_score, axis=1)
+        return float(accuracy_score(y_true, y_pred))
+    return float(top_k_accuracy_score(y_true, y_score, k=k))
+
+
 # Metric category sets (canonical source of truth).
 # Threshold metrics require a decision threshold to produce binary predictions.
 THRESHOLD_METRICS: set[str] = {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}
@@ -80,6 +129,11 @@ THRESHOLD_METRICS: set[str] = {"accuracy", "f1", "precision", "recall", "matthew
 CALIBRATION_METRICS: set[str] = {"brier_score", "ece"}
 # Ranking metrics evaluate score ordering without a threshold.
 RANKING_METRICS: set[str] = {"auc", "pr_auc", "logloss"}
+# Multiclass metrics (no threshold -- use argmax or probability matrix directly).
+MULTICLASS_METRICS: set[str] = {
+    "macro_f1", "weighted_f1", "macro_precision", "macro_recall",
+    "macro_auc", "cohens_kappa", "top_k_accuracy",
+}
 
 
 def compute_metric(
@@ -111,4 +165,11 @@ METRICS: Dict[str, Callable[..., float]] = {
     "matthews_corrcoef": metric_matthews_corrcoef,
     "brier_score": metric_brier_score,
     "ece": metric_ece,
+    "macro_f1": metric_macro_f1,
+    "weighted_f1": metric_weighted_f1,
+    "macro_precision": metric_macro_precision,
+    "macro_recall": metric_macro_recall,
+    "macro_auc": metric_macro_auc,
+    "cohens_kappa": metric_cohens_kappa,
+    "top_k_accuracy": metric_top_k_accuracy,
 }
