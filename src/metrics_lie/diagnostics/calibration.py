@@ -13,6 +13,15 @@ def brier_score(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(np.mean((p - y) ** 2))
 
 
+def multiclass_brier_score(y_true: np.ndarray, y_proba: np.ndarray) -> float:
+    """Multiclass Brier score: mean(sum_k (p_k - y_k)^2) where y is one-hot."""
+    y = np.asarray(y_true, dtype=int)
+    p = np.asarray(y_proba, dtype=float)
+    one_hot = np.zeros_like(p)
+    one_hot[np.arange(len(y)), y] = 1.0
+    return float(np.mean(np.sum((p - one_hot) ** 2, axis=1)))
+
+
 def expected_calibration_error(
     y_true: np.ndarray, y_score: np.ndarray, n_bins: int = 10
 ) -> float:
