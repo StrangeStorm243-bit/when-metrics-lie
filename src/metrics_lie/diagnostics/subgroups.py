@@ -4,6 +4,7 @@ from typing import Callable, Dict
 
 import numpy as np
 
+from metrics_lie.metrics.core import THRESHOLD_METRICS
 from metrics_lie.surface_compat import DEFAULT_THRESHOLD
 
 
@@ -44,14 +45,13 @@ def safe_metric_for_group(
     if len(y_true_g) < 2:
         return None
 
-    # For AUC, need both classes present
-    if metric_name == "auc":
-        unique_labels = np.unique(y_true_g)
-        if len(unique_labels) < 2:
+    # AUC variants need both classes present
+    if metric_name in ("auc", "macro_auc", "pr_auc"):
+        if len(np.unique(y_true_g)) < 2:
             return None
 
     try:
-        if metric_name == "accuracy":
+        if metric_name in THRESHOLD_METRICS:
             return metric_fn(y_true_g, y_score_g, threshold=DEFAULT_THRESHOLD)
         else:
             return metric_fn(y_true_g, y_score_g)
