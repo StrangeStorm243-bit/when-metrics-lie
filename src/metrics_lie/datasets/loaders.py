@@ -123,3 +123,102 @@ def load_binary_csv(
         X=X,
         feature_cols=resolved_feature_cols,
     )
+
+
+@dataclass(frozen=True)
+class LoadedDataset:
+    y_true: pd.Series
+    y_score: pd.Series
+    subgroup: Optional[pd.Series] = None
+    X: Optional[pd.DataFrame] = None
+    feature_cols: Optional[list[str]] = None
+
+
+def load_dataset(
+    path: str,
+    y_true_col: str,
+    y_score_col: str,
+    task_type: str = "binary_classification",
+    subgroup_col: str | None = None,
+    *,
+    feature_cols: list[str] | None = None,
+    require_features: bool = False,
+    allow_missing_score: bool = False,
+) -> LoadedDataset:
+    """Load a dataset for any task type."""
+    p = Path(path)
+    if not p.exists():
+        raise FileNotFoundError(f"CSV not found: {p}")
+
+    df = pd.read_csv(p)
+
+    if y_true_col not in df.columns:
+        raise ValueError(
+            f"Missing required column '{y_true_col}'. Available: {list(df.columns)}"
+        )
+    if y_score_col not in df.columns:
+        if allow_missing_score:
+            df[y_score_col] = 0.0
+        else:
+            raise ValueError(
+                f"Missing required column '{y_score_col}'. Available: {list(df.columns)}"
+            )
+
+    y_true = df[y_true_col]
+    y_score = df[y_score_col]
+
+    # Task-type-specific validation
+    if task_type == "binary_classification":
+        _validate_binary_labels(y_true, y_true_col)
+        _validate_probability_series(y_score, y_score_col)
+    elif task_type in ("multiclass_classification", "multilabel_classification"):
+        arr = np.asarray(y_true)
+        validate_no_nan(arr, y_true_col)
+    elif task_type == "regression":
+        arr_t = np.asarray(y_true, dtype=float)
+        validate_no_nan(arr_t, y_true_col)
+        validate_no_inf(arr_t, y_true_col)
+        arr_s = np.asarray(y_score, dtype=float)
+        validate_no_nan(arr_s, y_score_col)
+        validate_no_inf(arr_s, y_score_col)
+    else:
+        arr = np.asarray(y_true)
+        validate_no_nan(arr, y_true_col)
+
+    subgroup = None
+    if subgroup_col:
+        if subgroup_col not in df.columns:
+            raise ValueError(
+                f"Missing subgroup column '{subgroup_col}'. Available: {list(df.columns)}"
+            )
+        subgroup = df[subgroup_col]
+
+    X = None
+    resolved_feature_cols = None
+    if feature_cols is not None:
+        missing = [c for c in feature_cols if c not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Missing feature columns: {missing}. Available: {list(df.columns)}"
+            )
+        resolved_feature_cols = list(feature_cols)
+        X = df[resolved_feature_cols]
+    elif require_features:
+        excluded = {y_true_col, y_score_col}
+        if subgroup_col:
+            excluded.add(subgroup_col)
+        inferred = [c for c in df.columns if c not in excluded]
+        if not inferred:
+            raise ValueError(
+                "No feature columns inferred. Provide feature_cols explicitly."
+            )
+        resolved_feature_cols = inferred
+        X = df[resolved_feature_cols]
+
+    return LoadedDataset(
+        y_true=y_true,
+        y_score=y_score,
+        subgroup=subgroup,
+        X=X,
+        feature_cols=resolved_feature_cols,
+    )
