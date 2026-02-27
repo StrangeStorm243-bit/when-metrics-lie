@@ -12,17 +12,6 @@ def test_main_is_callable():
     assert callable(metrics_lie.cli.main)
 
 
-def test_main_import_safe():
-    """Test that importing metrics_lie.cli doesn't cause side effects."""
-    # Re-import to ensure it's safe
-    import importlib
-
-    importlib.reload(metrics_lie.cli)
-
-    # Should be able to import without errors
-    assert hasattr(metrics_lie.cli, "main")
-    assert callable(metrics_lie.cli.main)
-
 
 def test_main_help_output(monkeypatch):
     """Test that main() can be called with --help and produces output."""

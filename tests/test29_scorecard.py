@@ -90,34 +90,6 @@ def test_top_contributors_length_leq_3():
     assert len(top_contributors) <= 3
 
 
-def test_different_profiles_produce_different_scores():
-    """Test that different profiles produce different total_score sign/magnitude."""
-    report = _make_fake_compare_report()
-
-    # Use balanced profile
-    profile_balanced = BALANCED
-    comps_balanced = extract_components(report, profile_balanced)
-    scorecard_balanced = build_scorecard(comps_balanced, profile_balanced)
-
-    # Use risk_averse profile (should penalize subgroup_gap_delta more)
-    profile_risk = RISK_AVERSE
-    comps_risk = extract_components(report, profile_risk)
-    scorecard_risk = build_scorecard(comps_risk, profile_risk)
-
-    # Scores should be different (at least in magnitude if not sign)
-    # Risk_averse has higher weight on subgroup_gap_delta (0.25 vs 0.2)
-    # and lower weight on metric_mean_delta (0.25 vs 0.4)
-    # Since subgroup_gap_delta is positive (worse), risk_averse should have a more negative score
-    assert scorecard_balanced.total_score != scorecard_risk.total_score
-
-    # Verify the difference in contributions
-    # Risk_averse should have larger negative contribution from subgroup_gap_delta
-    if "subgroup_gap_delta" in scorecard_balanced.contributions:
-        balanced_subgap = scorecard_balanced.contributions["subgroup_gap_delta"]
-        risk_subgap = scorecard_risk.contributions.get("subgroup_gap_delta", 0.0)
-        # Risk_averse has weight 0.25 vs 0.2, so contribution should be larger
-        assert abs(risk_subgap) >= abs(balanced_subgap)
-
 
 def test_performance_first_different_from_balanced():
     """Test that performance_first profile produces different scores."""

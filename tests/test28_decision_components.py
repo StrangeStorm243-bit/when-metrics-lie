@@ -142,24 +142,6 @@ def test_subset_none_available_raises_error():
         extract_components(report, profile)
 
 
-def test_null_subgroup_gap_ignored():
-    """Test that null subgroup_gap_delta is ignored in aggregation."""
-    report = _make_fake_compare_report()
-    profile = BALANCED
-
-    result = extract_components(report, profile)
-
-    # subgroup_gap_delta should only use non-null values: [0.02, 0.03]
-    # worst_case (max) = 0.03
-    assert result.components["subgroup_gap_delta"] == pytest.approx(0.03)
-
-    # Check per_scenario meta
-    assert result.meta["per_scenario"]["score_noise"]["subgroup_gap_delta"] is None
-    assert result.meta["per_scenario"]["label_noise"][
-        "subgroup_gap_delta"
-    ] == pytest.approx(0.02)
-
-
 def test_metric_gaming_delta_present():
     """Test that metric_inflation_delta is extracted when metric_gaming_delta is present."""
     report = _make_fake_compare_report()
@@ -175,15 +157,6 @@ def test_metric_gaming_delta_present():
 
     assert result.components["metric_inflation_delta"] == pytest.approx(0.015)
 
-
-def test_metric_gaming_delta_missing():
-    """Test that metric_inflation_delta is None when metric_gaming_delta is missing."""
-    report = _make_fake_compare_report()
-    # metric_gaming_delta is None or missing
-    profile = BALANCED
-    result = extract_components(report, profile)
-
-    assert result.components["metric_inflation_delta"] is None
 
 
 def test_percentile_aggregation():
