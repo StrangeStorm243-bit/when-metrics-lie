@@ -35,6 +35,7 @@ def build_dashboard_summary(
     surface_type: str,
     metric_results: dict[str, Any],
     scenario_results_by_metric: dict[str, list[Any]],
+    metric_directions: dict[str, bool] | None = None,
 ) -> DashboardSummary:
     """Build a multi-metric dashboard summary from run results.
 
@@ -75,10 +76,15 @@ def build_dashboard_summary(
             stable_metrics.append(metric_id)
             continue
 
+        # Determine direction for this metric
+        hib = True  # default: higher is better
+        if metric_directions is not None and metric_id in metric_directions:
+            hib = metric_directions[metric_id]
+
         # Find worst and best scenarios
         worst_scenario: dict[str, Any] | None = None
         best_scenario: dict[str, Any] | None = None
-        worst_delta = 0.0
+        worst_degradation_delta = 0.0
         best_delta = float("-inf")
 
         for sr in scenarios:
@@ -91,8 +97,12 @@ def build_dashboard_summary(
             delta = score - baseline
             scenario_id = sr_dict.get("scenario_id", "unknown")
 
-            if delta < worst_delta:
-                worst_delta = delta
+            # For higher-is-better, degradation = negative delta.
+            # For lower-is-better, degradation = positive delta (flip sign).
+            degradation_delta = delta if hib else -delta
+
+            if degradation_delta < worst_degradation_delta:
+                worst_degradation_delta = degradation_delta
                 worst_scenario = {
                     "scenario_id": scenario_id,
                     "score": score,
@@ -107,8 +117,9 @@ def build_dashboard_summary(
                     "delta": delta,
                 }
 
-        # Calculate scenario range
-        scenario_range = abs(worst_delta - best_delta) if best_delta > float("-inf") else 0.0
+        # Calculate scenario range using raw deltas
+        worst_raw_delta = worst_scenario["delta"] if worst_scenario else 0.0
+        scenario_range = abs(worst_raw_delta - best_delta) if best_delta > float("-inf") else 0.0
 
         metrics_list.append({
             "metric_id": metric_id,
@@ -119,12 +130,12 @@ def build_dashboard_summary(
             "n_scenarios": len(scenarios),
         })
 
-        # Check for large drops
-        if worst_delta < -LARGE_DROP_THRESHOLD:
+        # Check for large drops using degradation_delta
+        if worst_degradation_delta < -LARGE_DROP_THRESHOLD:
             metrics_with_large_drops.append(metric_id)
             # Track worst overall
-            if worst_overall_delta is None or worst_delta < worst_overall_delta:
-                worst_overall_delta = worst_delta
+            if worst_overall_delta is None or worst_degradation_delta < worst_overall_delta:
+                worst_overall_delta = worst_degradation_delta
                 worst_overall_metric = metric_id
                 worst_overall_scenario = worst_scenario["scenario_id"] if worst_scenario else None
         else:
