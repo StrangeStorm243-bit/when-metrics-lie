@@ -82,12 +82,12 @@ def run_scenarios(
                 metric_name, metric_fn, y_p, s_p, threshold=DEFAULT_THRESHOLD
             )
             vals.append(float(v))
-            if ctx.surface_type == "probability":
+            if ctx.surface_type == "probability" and ctx.task == "binary_classification":
                 briers.append(brier_score(y_p, s_p))
                 eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
 
-            # Metric gaming: threshold optimization (only for accuracy)
-            if metric_name == "accuracy":
+            # Metric gaming: threshold optimization (only for binary accuracy)
+            if metric_name == "accuracy" and ctx.task == "binary_classification":
                 thresholds = np.linspace(0.05, 0.95, 19)
                 baseline_acc = accuracy_at_threshold(y_p, s_p, DEFAULT_THRESHOLD)
                 opt_thresh, opt_acc = find_optimal_threshold(y_p, s_p, thresholds)
@@ -119,18 +119,18 @@ def run_scenarios(
                                 subgroup_metric_vals[group_key] = []
                             subgroup_metric_vals[group_key].append(metric_val)
 
-                        # Calibration per group (only for probability surface)
+                        # Calibration per group (only for binary probability surface)
                         if group_key not in subgroup_brier_vals:
                             subgroup_brier_vals[group_key] = []
                             subgroup_ece_vals[group_key] = []
-                        if ctx.surface_type == "probability":
+                        if ctx.surface_type == "probability" and ctx.task == "binary_classification":
                             subgroup_brier_vals[group_key].append(brier_score(y_g, s_g))
                             subgroup_ece_vals[group_key].append(
                                 expected_calibration_error(y_g, s_g, n_bins=10)
                             )
 
         diag: Dict = {}
-        if ctx.surface_type == "probability" and briers and eces:
+        if ctx.surface_type == "probability" and ctx.task == "binary_classification" and briers and eces:
             diag["brier"] = summarize(briers).model_dump()
             diag["ece"] = summarize(eces).model_dump()
 
@@ -184,8 +184,8 @@ def run_scenarios(
                     "group_sizes": group_sizes,
                 }
 
-        # Metric gaming diagnostics (only for accuracy)
-        if metric_name == "accuracy" and len(baseline_accs) > 0:
+        # Metric gaming diagnostics (only for binary accuracy)
+        if metric_name == "accuracy" and ctx.task == "binary_classification" and len(baseline_accs) > 0:
             baseline_mean = float(np.mean(baseline_accs))
             optimized_mean = float(np.mean(optimized_accs))
             delta = optimized_mean - baseline_mean
@@ -193,7 +193,7 @@ def run_scenarios(
 
             # Downstream impacts: compute on representative trial with mean optimal threshold
             downstream: Dict = {}
-            if gaming_trial_data and ctx.surface_type == "probability":
+            if gaming_trial_data and ctx.surface_type == "probability" and ctx.task == "binary_classification":
                 # Use first trial as representative
                 y_rep, s_rep = gaming_trial_data[0]
                 downstream["brier"] = float(brier_score(y_rep, s_rep))

@@ -15,6 +15,7 @@ class ScenarioContext:
 
     task: str = "binary_classification"
     surface_type: str = "probability"
+    n_classes: int | None = None
 
 
 class Scenario(Protocol):
