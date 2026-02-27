@@ -379,6 +379,20 @@ def run_from_spec_dict(
             "brier": brier_score(y_true, y_score),
             "ece": expected_calibration_error(y_true, y_score, n_bins=10),
         }
+    elif (
+        task_type == TaskType.MULTICLASS_CLASSIFICATION
+        and surface_type == SurfaceType.PROBABILITY
+        and y_score.ndim == 2
+    ):
+        from metrics_lie.diagnostics.calibration import (
+            multiclass_brier_score,
+            multiclass_ece,
+        )
+
+        baseline_cal = {
+            "multiclass_brier": multiclass_brier_score(y_true, y_score),
+            "multiclass_ece": multiclass_ece(y_true, y_score),
+        }
 
     # Use primary metric for headline baseline/scenarios.
     baseline_value = metric_results[primary_metric].mean
@@ -574,6 +588,8 @@ def run_from_spec_dict(
         }
 
         analysis_artifacts: dict[str, Any] = {}
+
+        # Binary-only analysis: threshold sweep, sensitivity, disagreement
         if (
             task_type.is_binary
             and prediction_surface is not None
@@ -606,20 +622,32 @@ def run_from_spec_dict(
             analysis_artifacts["metric_disagreements"] = [
                 d.to_jsonable() for d in disagreements
             ]
-            failures = locate_failure_modes(
-                y_true=y_true,
-                surface=prediction_surface,
-                metrics=applicable.metrics,
-                subgroup=subgroup,
-                top_k=20,
-            )
-            analysis_artifacts["failure_modes"] = failures.to_jsonable()
+
+        # Sensitivity for non-binary: works on CONTINUOUS and LABEL surfaces
         elif (
-            prediction_surface is not None
+            not task_type.is_binary
+            and prediction_surface is not None
             and prediction_surface.surface_type
-            in (SurfaceType.SCORE, SurfaceType.LABEL, SurfaceType.CONTINUOUS)
+            in (SurfaceType.CONTINUOUS, SurfaceType.LABEL)
         ):
-            # failure_modes supports SCORE/LABEL/CONTINUOUS via else branch; no sweep/sensitivity.
+            sensitivity_metrics = [
+                m for m in applicable.metrics
+                if m not in ("macro_auc", "top_k_accuracy")
+            ]
+            if sensitivity_metrics:
+                sensitivity = run_sensitivity_analysis(
+                    y_true=y_true,
+                    surface=prediction_surface,
+                    metrics=sensitivity_metrics,
+                    perturbation_type="score_noise",
+                    magnitudes=[0.01, 0.02, 0.05, 0.1, 0.2],
+                    n_trials=50,
+                    seed=spec.seed,
+                )
+                analysis_artifacts["sensitivity"] = sensitivity.to_jsonable()
+
+        # Failure modes: works for all task types and surface types
+        if prediction_surface is not None:
             failures = locate_failure_modes(
                 y_true=y_true,
                 surface=prediction_surface,
@@ -629,8 +657,10 @@ def run_from_spec_dict(
             )
             analysis_artifacts["failure_modes"] = failures.to_jsonable()
 
-        # Phase 8: Build dashboard summary for multi-metric runs
+        # Dashboard: works for all task types with 2+ metrics
         if len(applicable.metrics) > 1:
+            from metrics_lie.metrics.registry import METRIC_DIRECTION
+
             dashboard = build_dashboard_summary(
                 primary_metric=primary_metric,
                 surface_type=surface_type.value,
@@ -639,8 +669,66 @@ def run_from_spec_dict(
                     k: [sr.model_dump() for sr in v]
                     for k, v in scenario_results_by_metric.items()
                 },
+                metric_directions=METRIC_DIRECTION,
             )
             analysis_artifacts["dashboard_summary"] = dashboard.to_jsonable()
+
+        # Fairness analysis (optional — requires fairlearn and sensitive_feature)
+        sensitive_feature = spec_dict.get("sensitive_feature")
+        if sensitive_feature and prediction_surface is not None:
+            try:
+                from metrics_lie.diagnostics.fairness import compute_fairness_report
+                import pandas as _pd_fair
+
+                raw_df = _pd_fair.read_csv(spec.dataset.path)
+                if sensitive_feature in raw_df.columns:
+                    sensitive_features = raw_df[sensitive_feature].values
+                    if prediction_surface.values.ndim == 2:
+                        y_pred_fairness = np.argmax(prediction_surface.values, axis=1)
+                    elif prediction_surface.surface_type == SurfaceType.LABEL:
+                        y_pred_fairness = prediction_surface.values.astype(int)
+                    elif prediction_surface.surface_type == SurfaceType.PROBABILITY:
+                        threshold = prediction_surface.threshold or 0.5
+                        y_pred_fairness = (prediction_surface.values >= threshold).astype(int)
+                    else:
+                        y_pred_fairness = prediction_surface.values
+
+                    fairness_report = compute_fairness_report(
+                        y_true=y_true,
+                        y_pred=y_pred_fairness,
+                        sensitive_features=sensitive_features,
+                        metric_fns={
+                            "accuracy": lambda yt, yp: float(np.mean(yt == yp)),
+                        },
+                    )
+                    analysis_artifacts["fairness"] = fairness_report
+            except ImportError:
+                pass  # fairlearn not installed — skip
+
+        # Drift detection (optional — requires evidently and reference_dataset)
+        reference_dataset = spec_dict.get("reference_dataset")
+        if reference_dataset:
+            try:
+                from metrics_lie.diagnostics.drift import compute_drift_report
+                import pandas as _pd_drift
+
+                ref_df = _pd_drift.read_csv(reference_dataset)
+                eval_df = _pd_drift.read_csv(spec.dataset.path)
+                feature_cols = [
+                    c for c in eval_df.columns
+                    if c not in ("y_true", "y_score", "subgroup")
+                    and not c.startswith("y_score_")
+                ]
+                shared_cols = sorted(set(feature_cols) & set(ref_df.columns))
+                if shared_cols:
+                    drift_report = compute_drift_report(
+                        reference=ref_df,
+                        current=eval_df,
+                        feature_columns=shared_cols,
+                    )
+                    analysis_artifacts["drift"] = drift_report
+            except ImportError:
+                pass  # evidently not installed — skip
 
         bundle = ResultBundle(
             run_id=run_id,

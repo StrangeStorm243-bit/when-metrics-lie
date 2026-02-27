@@ -85,6 +85,18 @@ def run_scenarios(
             if ctx.surface_type == "probability" and ctx.task == "binary_classification":
                 briers.append(brier_score(y_p, s_p))
                 eces.append(expected_calibration_error(y_p, s_p, n_bins=10))
+            elif (
+                ctx.surface_type == "probability"
+                and ctx.task == "multiclass_classification"
+                and s_p.ndim == 2
+            ):
+                from metrics_lie.diagnostics.calibration import (
+                    multiclass_brier_score,
+                    multiclass_ece,
+                )
+
+                briers.append(multiclass_brier_score(y_p, s_p))
+                eces.append(multiclass_ece(y_p, s_p))
 
             # Metric gaming: threshold optimization (only for binary accuracy)
             if metric_name == "accuracy" and ctx.task == "binary_classification":
