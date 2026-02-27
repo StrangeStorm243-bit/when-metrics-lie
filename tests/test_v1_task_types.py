@@ -22,6 +22,27 @@ def test_task_type_is_classification():
     assert TaskType.RANKING.is_classification is False
 
 
+def test_task_type_is_binary():
+    assert TaskType.BINARY_CLASSIFICATION.is_binary is True
+    assert TaskType.MULTICLASS_CLASSIFICATION.is_binary is False
+    assert TaskType.REGRESSION.is_binary is False
+    assert TaskType.RANKING.is_binary is False
+
+
+def test_task_type_is_regression():
+    assert TaskType.REGRESSION.is_regression is True
+    assert TaskType.BINARY_CLASSIFICATION.is_regression is False
+    assert TaskType.MULTICLASS_CLASSIFICATION.is_regression is False
+
+
+def test_task_type_supports_threshold():
+    assert TaskType.BINARY_CLASSIFICATION.supports_threshold is True
+    assert TaskType.MULTICLASS_CLASSIFICATION.supports_threshold is False
+    assert TaskType.REGRESSION.supports_threshold is False
+    assert TaskType.RANKING.supports_threshold is False
+    assert TaskType.MULTILABEL_CLASSIFICATION.supports_threshold is True
+
+
 def test_task_type_all_members():
     names = [t.value for t in TaskType]
     assert len(names) >= 4
