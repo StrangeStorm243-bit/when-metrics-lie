@@ -29,7 +29,7 @@ class PredictionSurface:
     values: np.ndarray
     dtype: np.dtype
     n_samples: int
-    class_names: tuple[str, str]
+    class_names: tuple[str, ...]
     positive_label: int | str
     threshold: float | None
     calibration_state: CalibrationState
@@ -87,9 +87,9 @@ def validate_surface(
         raise SurfaceValidationError(str(e)) from e
 
     if surface_type == SurfaceType.PROBABILITY:
-        if arr.ndim == 2 and arr.shape[1] != 2:
+        if arr.ndim == 2 and arr.shape[1] < 2:
             raise SurfaceValidationError(
-                f"probability surface must be shape (n_samples, 2). Got {arr.shape}"
+                f"probability surface must have at least 2 columns. Got {arr.shape}"
             )
         # Range checks for probabilities
         out_of_range = (arr < 0) | (arr > 1)
