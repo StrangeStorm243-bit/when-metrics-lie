@@ -4,7 +4,13 @@ from typing import Any, Dict, List, Literal, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
-TaskType = Literal["binary_classification"]
+TaskType = Literal[
+    "binary_classification",
+    "multiclass_classification",
+    "multilabel_classification",
+    "regression",
+    "ranking",
+]
 
 
 class DatasetSpec(BaseModel):
@@ -32,9 +38,9 @@ class DatasetSpec(BaseModel):
 
 
 class ModelSourceSpec(BaseModel):
-    kind: Literal["pickle", "import"] = Field(
+    kind: Literal["pickle", "import", "onnx", "xgboost", "lightgbm", "catboost", "http"] = Field(
         ...,
-        description="Model source type. Callable sources are only supported in Python API.",
+        description="Model source type.",
     )
     path: Optional[str] = Field(
         default=None,
@@ -43,6 +49,10 @@ class ModelSourceSpec(BaseModel):
     import_path: Optional[str] = Field(
         default=None,
         description="Import path to model object (if kind=import), e.g. module:attr",
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="HTTP endpoint URL (if kind=http).",
     )
     threshold: Optional[float] = Field(
         default=0.5, description="Threshold for probability surfaces."
