@@ -3,6 +3,14 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
+from sklearn.metrics import (
+    cohen_kappa_score,
+    f1_score as sklearn_f1,
+    precision_score as sklearn_precision,
+    recall_score as sklearn_recall,
+    roc_auc_score as sklearn_roc_auc,
+    top_k_accuracy_score as sklearn_top_k,
+)
 
 from metrics_lie.metrics.core import METRICS
 
@@ -28,65 +36,64 @@ def multiclass_data():
     return y_true, y_pred, y_proba
 
 
-def test_macro_f1_registered():
-    assert "macro_f1" in METRICS
-
-
-def test_weighted_f1_registered():
-    assert "weighted_f1" in METRICS
-
-
-def test_macro_precision_registered():
-    assert "macro_precision" in METRICS
-
-
-def test_macro_recall_registered():
-    assert "macro_recall" in METRICS
-
-
-def test_macro_auc_registered():
-    assert "macro_auc" in METRICS
-
-
-def test_cohens_kappa_registered():
-    assert "cohens_kappa" in METRICS
-
-
-def test_top_k_accuracy_registered():
-    assert "top_k_accuracy" in METRICS
+@pytest.mark.parametrize("metric_id", [
+    "macro_f1", "weighted_f1", "macro_precision", "macro_recall",
+    "macro_auc", "cohens_kappa", "top_k_accuracy",
+])
+def test_multiclass_metric_registered(metric_id):
+    assert metric_id in METRICS
 
 
 def test_macro_f1_value(multiclass_data):
     y_true, y_pred, _ = multiclass_data
-    fn = METRICS["macro_f1"]
-    result = fn(y_true, y_pred)
-    assert 0.0 <= result <= 1.0
+    expected = sklearn_f1(y_true, y_pred, average="macro", zero_division=0)
+    result = METRICS["macro_f1"](y_true, y_pred)
+    assert result == pytest.approx(expected)
 
 
 def test_weighted_f1_value(multiclass_data):
     y_true, y_pred, _ = multiclass_data
-    fn = METRICS["weighted_f1"]
-    result = fn(y_true, y_pred)
-    assert 0.0 <= result <= 1.0
+    expected = sklearn_f1(y_true, y_pred, average="weighted", zero_division=0)
+    result = METRICS["weighted_f1"](y_true, y_pred)
+    assert result == pytest.approx(expected)
+
+
+def test_macro_precision_value(multiclass_data):
+    y_true, y_pred, _ = multiclass_data
+    expected = sklearn_precision(y_true, y_pred, average="macro", zero_division=0)
+    result = METRICS["macro_precision"](y_true, y_pred)
+    assert result == pytest.approx(expected)
+
+
+def test_macro_recall_value(multiclass_data):
+    y_true, y_pred, _ = multiclass_data
+    expected = sklearn_recall(y_true, y_pred, average="macro", zero_division=0)
+    result = METRICS["macro_recall"](y_true, y_pred)
+    assert result == pytest.approx(expected)
 
 
 def test_macro_auc_value(multiclass_data):
     y_true, _, y_proba = multiclass_data
-    fn = METRICS["macro_auc"]
-    result = fn(y_true, y_proba)
-    assert 0.0 <= result <= 1.0
+    expected = sklearn_roc_auc(y_true, y_proba, multi_class="ovr", average="macro")
+    result = METRICS["macro_auc"](y_true, y_proba)
+    assert result == pytest.approx(expected)
 
 
 def test_cohens_kappa_value(multiclass_data):
     y_true, y_pred, _ = multiclass_data
-    fn = METRICS["cohens_kappa"]
-    result = fn(y_true, y_pred)
-    assert -1.0 <= result <= 1.0
+    expected = cohen_kappa_score(y_true, y_pred)
+    result = METRICS["cohens_kappa"](y_true, y_pred)
+    assert result == pytest.approx(expected)
 
 
 def test_top_k_accuracy_value(multiclass_data):
     y_true, _, y_proba = multiclass_data
-    fn = METRICS["top_k_accuracy"]
-    # top-2 accuracy should be >= top-1 accuracy
-    result = fn(y_true, y_proba)
-    assert 0.0 <= result <= 1.0
+    expected = sklearn_top_k(y_true, y_proba, k=2)
+    result = METRICS["top_k_accuracy"](y_true, y_proba)
+    assert result == pytest.approx(expected)
+
+
+def test_macro_auc_rejects_1d_input(multiclass_data):
+    y_true, y_pred, _ = multiclass_data
+    with pytest.raises(ValueError, match="requires 2D probability matrix"):
+        METRICS["macro_auc"](y_true, y_pred)

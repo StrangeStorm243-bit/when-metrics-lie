@@ -162,6 +162,8 @@ def test_compute_metric_covers_all_known_metrics(_binary_data):
     """Every metric in the METRICS dict can be called via compute_metric."""
     y_true, y_score = _binary_data
     for metric_id, fn in METRICS.items():
+        if metric_id in MULTICLASS_METRICS:
+            continue  # multiclass metrics require different data shapes
         val = compute_metric(
             metric_id, fn, y_true, y_score, threshold=DEFAULT_THRESHOLD
         )
