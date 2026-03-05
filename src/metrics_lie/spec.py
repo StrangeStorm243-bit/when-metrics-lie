@@ -10,6 +10,8 @@ TaskType = Literal[
     "multilabel_classification",
     "regression",
     "ranking",
+    "text_classification",
+    "text_generation",
 ]
 
 
@@ -38,7 +40,7 @@ class DatasetSpec(BaseModel):
 
 
 class ModelSourceSpec(BaseModel):
-    kind: Literal["pickle", "import", "onnx", "xgboost", "lightgbm", "catboost", "http"] = Field(
+    kind: Literal["pickle", "import", "onnx", "xgboost", "lightgbm", "catboost", "http", "pytorch", "tensorflow", "huggingface"] = Field(
         ...,
         description="Model source type.",
     )

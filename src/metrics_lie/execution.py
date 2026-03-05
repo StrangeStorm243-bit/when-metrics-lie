@@ -207,6 +207,28 @@ def run_from_spec_dict(
                 threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
                 positive_label=spec.model_source.positive_label or 1,
             )
+        elif kind == "pytorch":
+            from metrics_lie.model.adapters.pytorch_adapter import PyTorchAdapter
+
+            if not spec.model_source.path:
+                raise ValueError("model_source.path is required for kind=pytorch")
+            adapter = PyTorchAdapter(
+                path=spec.model_source.path,
+                task_type=TaskType(spec.task),
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+            )
+        elif kind == "tensorflow":
+            from metrics_lie.model.adapters.tensorflow_adapter import TensorFlowAdapter
+
+            if not spec.model_source.path:
+                raise ValueError("model_source.path is required for kind=tensorflow")
+            adapter = TensorFlowAdapter(
+                path=spec.model_source.path,
+                task_type=TaskType(spec.task),
+                threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
+                positive_label=spec.model_source.positive_label or 1,
+            )
         else:
             raise ValueError(f"Unsupported model_source kind: {kind}")
 

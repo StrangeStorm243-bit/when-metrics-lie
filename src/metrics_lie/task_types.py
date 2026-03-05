@@ -11,6 +11,8 @@ class TaskType(str, Enum):
     MULTILABEL_CLASSIFICATION = "multilabel_classification"
     REGRESSION = "regression"
     RANKING = "ranking"
+    TEXT_CLASSIFICATION = "text_classification"
+    TEXT_GENERATION = "text_generation"
 
     @property
     def is_classification(self) -> bool:
@@ -19,6 +21,7 @@ class TaskType(str, Enum):
             TaskType.BINARY_CLASSIFICATION,
             TaskType.MULTICLASS_CLASSIFICATION,
             TaskType.MULTILABEL_CLASSIFICATION,
+            TaskType.TEXT_CLASSIFICATION,
         )
 
     @property

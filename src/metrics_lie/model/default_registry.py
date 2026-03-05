@@ -28,6 +28,21 @@ def _mlflow_factory(**kwargs):
     return MLflowAdapter(**kwargs)
 
 
+def _pytorch_factory(**kwargs):
+    from metrics_lie.model.adapters.pytorch_adapter import PyTorchAdapter
+    return PyTorchAdapter(**kwargs)
+
+
+def _tensorflow_factory(**kwargs):
+    from metrics_lie.model.adapters.tensorflow_adapter import TensorFlowAdapter
+    return TensorFlowAdapter(**kwargs)
+
+
+def _huggingface_factory(**kwargs):
+    from metrics_lie.model.adapters.huggingface_adapter import HuggingFaceAdapter
+    return HuggingFaceAdapter(**kwargs)
+
+
 _DEFAULT_REGISTRY: AdapterRegistry | None = None
 
 
@@ -82,6 +97,27 @@ def get_default_registry() -> AdapterRegistry:
     try:
         import mlflow  # noqa: F401
         reg.register("mlflow", factory=_mlflow_factory, extensions=set())
+    except ImportError:
+        pass
+
+    # PyTorch (optional)
+    try:
+        import torch  # noqa: F401
+        reg.register("pytorch", factory=_pytorch_factory, extensions={".pt", ".pth"})
+    except ImportError:
+        pass
+
+    # TensorFlow (optional)
+    try:
+        import tensorflow  # noqa: F401
+        reg.register("tensorflow", factory=_tensorflow_factory, extensions={".keras", ".h5"})
+    except ImportError:
+        pass
+
+    # HuggingFace (optional)
+    try:
+        import transformers  # noqa: F401
+        reg.register("huggingface", factory=_huggingface_factory, extensions=set())
     except ImportError:
         pass
 
