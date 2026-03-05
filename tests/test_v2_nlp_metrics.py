@@ -4,7 +4,7 @@ import pytest
 
 
 def test_rouge_l_metric():
-    evaluate = pytest.importorskip("evaluate")
+    pytest.importorskip("evaluate")
     from metrics_lie.metrics.nlp import metric_rouge_l
 
     y_true = ["the cat sat on the mat", "hello world"]
@@ -14,7 +14,7 @@ def test_rouge_l_metric():
 
 
 def test_bleu_metric():
-    evaluate = pytest.importorskip("evaluate")
+    pytest.importorskip("evaluate")
     from metrics_lie.metrics.nlp import metric_bleu
 
     y_true = ["the cat sat on the mat"]

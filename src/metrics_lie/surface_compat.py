@@ -30,6 +30,7 @@ SCENARIO_SURFACE_COMPAT: dict[SurfaceType, set[str]] = {
     SurfaceType.SCORE: {"label_noise", "score_noise", "class_imbalance"},
     SurfaceType.LABEL: {"label_noise", "class_imbalance"},
     SurfaceType.CONTINUOUS: {"label_noise", "score_noise"},
+    SurfaceType.TEXT: {"synonym_replacement", "typo_injection"},
 }
 
 DEFAULT_THRESHOLD: float = 0.5

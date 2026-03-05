@@ -94,15 +94,18 @@ class TestScanModelFile:
 class TestCheckTrustPolicy:
     """Tests for check_trust_policy."""
 
-    def test_pkl_without_trust_raises(self) -> None:
+    def test_pkl_without_trust_raises(self, monkeypatch) -> None:
+        monkeypatch.delenv("SPECTRA_TRUST_PICKLE", raising=False)
         with pytest.raises(ValueError, match="trust_pickle=True"):
             check_trust_policy("model.pkl", trust_pickle=False)
 
-    def test_pickle_without_trust_raises(self) -> None:
+    def test_pickle_without_trust_raises(self, monkeypatch) -> None:
+        monkeypatch.delenv("SPECTRA_TRUST_PICKLE", raising=False)
         with pytest.raises(ValueError, match="trust_pickle=True"):
             check_trust_policy("model.pickle", trust_pickle=False)
 
-    def test_joblib_without_trust_raises(self) -> None:
+    def test_joblib_without_trust_raises(self, monkeypatch) -> None:
+        monkeypatch.delenv("SPECTRA_TRUST_PICKLE", raising=False)
         with pytest.raises(ValueError, match="trust_pickle=True"):
             check_trust_policy("model.joblib", trust_pickle=False)
 

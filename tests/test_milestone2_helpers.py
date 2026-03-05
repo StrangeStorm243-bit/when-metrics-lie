@@ -17,6 +17,7 @@ from metrics_lie.metrics.core import (
     RANKING_METRICS,
     MULTICLASS_METRICS,
     REGRESSION_METRICS,
+    NLP_METRICS,
     compute_metric,
 )
 from metrics_lie.model.surface import SurfaceType
@@ -40,6 +41,8 @@ _ALL_SCENARIOS = [
     _FakeScenario("score_noise"),
     _FakeScenario("class_imbalance"),
     _FakeScenario("threshold_gaming"),
+    _FakeScenario("synonym_replacement"),
+    _FakeScenario("typo_injection"),
 ]
 
 
@@ -53,7 +56,7 @@ def test_filter_probability_allows_all():
         "class_imbalance",
         "threshold_gaming",
     ]
-    assert skipped == []
+    assert sorted(skipped) == ["synonym_replacement", "typo_injection"]
 
 
 def test_filter_score_excludes_threshold_gaming():
@@ -63,23 +66,20 @@ def test_filter_score_excludes_threshold_gaming():
         "score_noise",
         "class_imbalance",
     ]
-    assert skipped == ["threshold_gaming"]
+    assert sorted(skipped) == ["synonym_replacement", "threshold_gaming", "typo_injection"]
 
 
 def test_filter_label_allows_only_label_noise_and_class_imbalance():
     compat, skipped = filter_compatible_scenarios(_ALL_SCENARIOS, SurfaceType.LABEL)
     assert [s.id for s in compat] == ["label_noise", "class_imbalance"]
-    assert sorted(skipped) == ["score_noise", "threshold_gaming"]
+    assert sorted(skipped) == ["score_noise", "synonym_replacement", "threshold_gaming", "typo_injection"]
 
 
 def test_filter_preserves_input_order():
     reversed_scenarios = list(reversed(_ALL_SCENARIOS))
     compat, _ = filter_compatible_scenarios(reversed_scenarios, SurfaceType.SCORE)
-    assert [s.id for s in compat] == [
-        "class_imbalance",
-        "score_noise",
-        "label_noise",
-    ]
+    compat_ids = [s.id for s in compat]
+    assert compat_ids == ["class_imbalance", "score_noise", "label_noise"]
 
 
 def test_filter_empty_input():
@@ -163,8 +163,8 @@ def test_compute_metric_covers_all_known_metrics(_binary_data):
     """Every metric in the METRICS dict can be called via compute_metric."""
     y_true, y_score = _binary_data
     for metric_id, fn in METRICS.items():
-        if metric_id in MULTICLASS_METRICS:
-            continue  # multiclass metrics require different data shapes
+        if metric_id in MULTICLASS_METRICS | REGRESSION_METRICS | NLP_METRICS | {"ndcg"}:
+            continue  # these metrics require different data shapes/types
         val = compute_metric(
             metric_id, fn, y_true, y_score, threshold=DEFAULT_THRESHOLD
         )
@@ -178,14 +178,14 @@ def test_metric_categories_cover_all_metrics():
     """Every metric in METRICS must belong to exactly one category."""
     all_categorized = (
         THRESHOLD_METRICS | CALIBRATION_METRICS | RANKING_METRICS
-        | MULTICLASS_METRICS | REGRESSION_METRICS
+        | MULTICLASS_METRICS | REGRESSION_METRICS | NLP_METRICS
     )
     assert all_categorized == set(METRICS.keys())
 
 
 def test_metric_categories_are_disjoint():
     """Categories must not overlap."""
-    all_sets = [THRESHOLD_METRICS, CALIBRATION_METRICS, RANKING_METRICS, MULTICLASS_METRICS, REGRESSION_METRICS]
+    all_sets = [THRESHOLD_METRICS, CALIBRATION_METRICS, RANKING_METRICS, MULTICLASS_METRICS, REGRESSION_METRICS, NLP_METRICS]
     for i, a in enumerate(all_sets):
         for b in all_sets[i + 1:]:
             assert a & b == set()

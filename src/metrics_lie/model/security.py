@@ -5,6 +5,7 @@ and enforces opt-in trust for formats that can execute arbitrary code.
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -85,7 +86,8 @@ def check_trust_policy(path: str, *, trust_pickle: bool = False) -> None:
     ext = Path(path).suffix.lower()
     if ext in SAFE_EXTENSIONS:
         return
-    if ext in PICKLE_EXTENSIONS and not trust_pickle:
+    env_trust = os.environ.get("SPECTRA_TRUST_PICKLE", "").lower() in ("1", "true", "yes")
+    if ext in PICKLE_EXTENSIONS and not trust_pickle and not env_trust:
         raise ValueError(
             f"Loading pickle files requires trust_pickle=True. "
             f"File: {path}. Pickle files can execute arbitrary code. "

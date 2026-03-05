@@ -75,5 +75,5 @@ def test_metric_id_is_str_not_literal():
 
 
 def test_total_requirements_count():
-    """Should have 22 total requirements (10 binary + 7 multiclass + 5 regression)."""
-    assert len(METRIC_REQUIREMENTS) == 22
+    """Should have 27 total requirements (10 binary + 7 multiclass + 7 regression + 1 ranking + 2 NLP)."""
+    assert len(METRIC_REQUIREMENTS) == 27

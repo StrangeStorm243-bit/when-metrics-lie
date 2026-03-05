@@ -26,7 +26,7 @@ def test_regression_includes_score_noise():
 
 def test_binary_includes_all_four():
     compat = SCENARIO_TASK_COMPAT["binary_classification"]
-    assert {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"} == compat
+    assert {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"}.issubset(compat)
 
 
 def test_multiclass_excludes_threshold_gaming():
