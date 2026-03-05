@@ -11,6 +11,9 @@ import {
   type ResultSummary,
 } from "@/lib/api";
 import { deriveFindings, getSeverityFromDelta } from "@/lib/insights";
+import { ConfusionMatrix } from "@/components/viz/confusion-matrix";
+import { PerClassMetrics } from "@/components/viz/per-class-metrics";
+import { ResidualStats } from "@/components/viz/residual-stats";
 
 export default function ExperimentPage() {
   const router = useRouter();
@@ -578,7 +581,9 @@ export default function ExperimentPage() {
             backgroundColor: "white",
           }}
         >
-          <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>Headline Score</h2>
+          <h2 style={{ marginTop: 0, marginBottom: "1rem" }}>
+            {result.task_type === "regression" ? "Primary Metric" : "Headline Score"}
+          </h2>
           <div style={{ fontSize: "3rem", fontWeight: "bold", color: "#0070f3" }}>
             {result.headline_score.toFixed(4)}
           </div>
@@ -915,6 +920,55 @@ export default function ExperimentPage() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Task-Specific Visualizations */}
+        {result.task_type && result.task_type !== "binary_classification" && (
+          <div className="text-xs text-gray-500 mb-2 uppercase tracking-wide">
+            Task: {result.task_type.replace(/_/g, " ")}
+          </div>
+        )}
+
+        {/* Confusion Matrix (classification only) */}
+        {result.confusion_matrix && (
+          <div className="bg-white rounded-lg border p-4 mb-4">
+            <ConfusionMatrix
+              matrix={result.confusion_matrix}
+              classNames={result.class_names || undefined}
+            />
+          </div>
+        )}
+
+        {/* Per-Class Metrics (multiclass only) */}
+        {result.per_class_metrics && (
+          <div className="bg-white rounded-lg border p-4 mb-4">
+            <PerClassMetrics
+              metrics={result.per_class_metrics}
+              classNames={result.class_names || undefined}
+            />
+          </div>
+        )}
+
+        {/* Regression Stats */}
+        {result.residual_stats && (
+          <div className="bg-white rounded-lg border p-4 mb-4">
+            <ResidualStats stats={result.residual_stats} />
+          </div>
+        )}
+
+        {/* Ranking Metrics */}
+        {result.ranking_metrics && (
+          <div className="bg-white rounded-lg border p-4 mb-4">
+            <h3 className="text-lg font-semibold mb-2">Ranking Metrics</h3>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {Object.entries(result.ranking_metrics).map(([name, value]) => (
+                <div key={name} className="bg-white border border-gray-200 rounded-lg p-3">
+                  <div className="text-xs text-gray-500 uppercase">{name.replace(/_/g, " ")}</div>
+                  <div className="text-xl font-mono font-bold">{(value as number).toFixed(4)}</div>
+                </div>
+              ))}
             </div>
           </div>
         )}

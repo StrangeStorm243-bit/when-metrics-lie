@@ -575,6 +575,57 @@ def run_from_spec_dict(
                     f"[PLOT] Saved {len(artifacts_list)} artifacts for scenario {scenario_id}"
                 )
 
+        # Task-specific summary artifacts for web display
+        task_specific: dict[str, Any] = {}
+
+        if task_type.is_classification and prediction_surface is not None:
+            from sklearn.metrics import confusion_matrix as _confusion_matrix
+
+            if prediction_surface.surface_type == SurfaceType.LABEL:
+                y_pred_labels = prediction_surface.values.astype(int)
+            elif prediction_surface.surface_type == SurfaceType.PROBABILITY:
+                if prediction_surface.values.ndim == 2:
+                    y_pred_labels = np.argmax(prediction_surface.values, axis=1)
+                else:
+                    threshold = prediction_surface.threshold or 0.5
+                    y_pred_labels = (prediction_surface.values >= threshold).astype(int)
+            else:
+                y_pred_labels = None
+
+            if y_pred_labels is not None:
+                cm = _confusion_matrix(y_true, y_pred_labels)
+                task_specific["confusion_matrix"] = cm.tolist()
+
+                unique_classes = sorted(set(y_true.tolist()) | set(y_pred_labels.tolist()))
+                task_specific["class_names"] = [str(c) for c in unique_classes]
+
+                if not task_type.is_binary:
+                    from sklearn.metrics import precision_recall_fscore_support
+                    prec, rec, f1s, sup = precision_recall_fscore_support(
+                        y_true, y_pred_labels, labels=unique_classes, zero_division=0
+                    )
+                    per_class = {}
+                    for i, cls in enumerate(unique_classes):
+                        per_class[str(cls)] = {
+                            "precision": float(prec[i]),
+                            "recall": float(rec[i]),
+                            "f1": float(f1s[i]),
+                            "support": int(sup[i]),
+                        }
+                    task_specific["per_class_metrics"] = per_class
+
+        elif task_type.is_regression and prediction_surface is not None:
+            residuals = y_true - prediction_surface.values
+            task_specific["residual_stats"] = {
+                "mean": float(np.mean(residuals)),
+                "std": float(np.std(residuals)),
+                "min": float(np.min(residuals)),
+                "max": float(np.max(residuals)),
+                "median": float(np.median(residuals)),
+                "mae": float(np.mean(np.abs(residuals))),
+                "rmse": float(np.sqrt(np.mean(residuals ** 2))),
+            }
+
         notes = {
             "phase": "1.7B",
             "spec_path": spec_path_for_notes,
@@ -585,6 +636,7 @@ def run_from_spec_dict(
                 "warnings": applicable.warnings,
                 "reasoning_trace": applicable.reasoning_trace,
             },
+            "task_specific": task_specific,
         }
 
         analysis_artifacts: dict[str, Any] = {}

@@ -54,11 +54,14 @@ async def create_experiment(
     experiment_id = str(uuid.uuid4())
     now = datetime.now(timezone.utc)
 
+    task_type = create_req.config.get("task_type", "binary_classification") if create_req.config else "binary_classification"
+
     summary = ExperimentSummary(
         id=experiment_id,
         name=create_req.name,
         metric_id=create_req.metric_id,
         stress_suite_id=create_req.stress_suite_id,
+        task_type=task_type,
         status="created",
         created_at=now,
         last_run_at=None,

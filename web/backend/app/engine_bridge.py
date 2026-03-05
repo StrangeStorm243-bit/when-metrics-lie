@@ -47,11 +47,10 @@ def ensure_core_db_initialized() -> None:
         os.chdir(original_cwd)
 
 
-def _get_default_scenarios(stress_suite_id: str) -> list[dict]:
-    """Map stress_suite_id to default scenario configurations."""
-    # For Phase 3.2, use a standard set of scenarios
-    # This will be enhanced in later phases to map to actual suite configs
-    return [
+def _get_default_scenarios(stress_suite_id: str, task_type: str = "binary_classification") -> list[dict]:
+    """Map stress_suite_id to default scenario configurations, filtered by task type."""
+    # Base scenarios for all classification
+    classification_scenarios = [
         {"id": "label_noise", "params": {"p": 0.1}},
         {"id": "score_noise", "params": {"sigma": 0.05}},
         {
@@ -59,6 +58,19 @@ def _get_default_scenarios(stress_suite_id: str) -> list[dict]:
             "params": {"target_pos_rate": 0.2, "max_remove_frac": 0.8},
         },
     ]
+
+    if task_type == "regression":
+        return [
+            {"id": "label_noise", "params": {"p": 0.1}},
+            {"id": "score_noise", "params": {"sigma": 0.05}},
+        ]
+    elif task_type == "ranking":
+        return [
+            {"id": "label_noise", "params": {"p": 0.1}},
+            {"id": "score_noise", "params": {"sigma": 0.05}},
+        ]
+    else:
+        return classification_scenarios
 
 
 def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
@@ -149,23 +161,26 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
     )
 
 
-def _get_default_dataset(create_req: ExperimentCreateRequest) -> dict:
-    """Get default dataset configuration."""
+def _get_default_dataset(create_req: ExperimentCreateRequest, task_type: str = "binary_classification") -> dict:
+    """Get default dataset configuration based on task type."""
     dataset_path = _get_dataset_path(create_req)
-
-    # ALWAYS use absolute path in spec dict
     path_str = str(dataset_path.resolve())
 
-    dataset_dict = {
+    dataset_dict: dict = {
         "source": "csv",
         "path": path_str,
-        "y_true_col": "y_true",
-        "y_score_col": "y_score",
-        "subgroup_col": "group",
+        "y_true_col": create_req.config.get("y_true_col", "y_true"),
+        "y_score_col": create_req.config.get("y_score_col", "y_score"),
     }
-    feature_cols = create_req.config.get("feature_cols") if create_req.config else None
+
+    subgroup_col = create_req.config.get("subgroup_col", "group")
+    if subgroup_col:
+        dataset_dict["subgroup_col"] = subgroup_col
+
+    feature_cols = create_req.config.get("feature_cols")
     if isinstance(feature_cols, list) and feature_cols:
         dataset_dict["feature_cols"] = feature_cols
+
     return dataset_dict
 
 
@@ -198,9 +213,13 @@ def _resolve_model_path(model_id: str, owner_id: str) -> tuple[str, str | None]:
                 pass
             raise
     repo_root = _find_repo_root()
-    pkl_path = repo_root / ".spectra_ui" / "models" / owner_id / f"{model_id}.pkl"
-    if not pkl_path.exists():
+    models_dir = repo_root / ".spectra_ui" / "models" / owner_id
+    # Find model file by model_id with any extension
+    candidates = list(models_dir.glob(f"{model_id}.*"))
+    candidates = [c for c in candidates if not c.name.endswith(".meta.json")]
+    if not candidates:
         raise ValueError(f"Model {model_id} not found for owner")
+    pkl_path = candidates[0]
     return str(pkl_path.resolve()), None
 
 
@@ -225,12 +244,13 @@ def run_experiment(
         ResultSummary with experiment results
     """
     # Build ExperimentSpec from create_req
-    dataset_dict = _get_default_dataset(create_req)
-    scenarios = _get_default_scenarios(create_req.stress_suite_id)
+    task_type = create_req.config.get("task_type", "binary_classification") if create_req.config else "binary_classification"
+    dataset_dict = _get_default_dataset(create_req, task_type)
+    scenarios = _get_default_scenarios(create_req.stress_suite_id, task_type)
 
     spec_dict = {
         "name": create_req.name,
-        "task": "binary_classification",
+        "task": task_type,
         "dataset": dataset_dict,
         "metric": create_req.metric_id,
         "scenarios": scenarios,
@@ -261,12 +281,23 @@ def run_experiment(
     temp_path_to_clean: str | None = None
     if model_id:
         resolved_path, temp_path_to_clean = _resolve_model_path(model_id, owner_id)
+
+        # Detect model format from stored metadata
+        model_kind = "pickle"  # default
+        import json as _json
+        meta_path = Path(resolved_path).with_suffix(".meta.json")
+        if meta_path.exists():
+            meta = _json.loads(meta_path.read_text())
+            ext = Path(meta.get("original_filename", "")).suffix.lower()
+            ext_to_kind = {".onnx": "onnx", ".ubj": "xgboost", ".xgb": "xgboost", ".lgb": "lightgbm", ".cbm": "catboost"}
+            model_kind = ext_to_kind.get(ext, "pickle")
+
         feature_cols = create_req.config.get("feature_cols", ["y_score"])
         if not isinstance(feature_cols, list):
             feature_cols = ["y_score"]
         spec_dict["dataset"] = {**spec_dict["dataset"], "feature_cols": feature_cols}
         spec_dict["model_source"] = {
-            "kind": "pickle",
+            "kind": model_kind,
             "path": resolved_path,
             "threshold": create_req.config.get("threshold", 0.5),
         }

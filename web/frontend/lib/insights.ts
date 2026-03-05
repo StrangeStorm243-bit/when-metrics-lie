@@ -96,6 +96,24 @@ export function deriveFindings(result: ResultSummary): Finding[] {
     }
   }
 
+  // Task-specific findings
+  if (result.task_type === "regression" && result.residual_stats) {
+    const stats = result.residual_stats;
+    findings.push({ text: `Regression MAE: ${stats.mae.toFixed(4)}, RMSE: ${stats.rmse.toFixed(4)}` });
+    if (Math.abs(stats.mean) > stats.std * 0.5) {
+      findings.push({ text: `Model shows prediction bias (mean residual: ${stats.mean.toFixed(4)})` });
+    }
+  }
+
+  if (result.per_class_metrics) {
+    const classes = Object.entries(result.per_class_metrics);
+    const worstClass = classes.reduce((worst, [cls, m]) =>
+      m.f1 < (worst[1]?.f1 ?? 1) ? [cls, m] as [string, { precision: number; recall: number; f1: number; support: number }] : worst, classes[0] as [string, { precision: number; recall: number; f1: number; support: number }]);
+    if (worstClass) {
+      findings.push({ text: `Weakest class: ${worstClass[0]} (F1: ${worstClass[1].f1.toFixed(3)})` });
+    }
+  }
+
   // Return 3-6 findings (prioritize most important)
   return findings.slice(0, 6);
 }
