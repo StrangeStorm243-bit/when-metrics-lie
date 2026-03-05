@@ -56,12 +56,22 @@ metrics = [
   "evaluate>=0.4",
   "rouge-score>=0.1"
 ]
+pytorch = [
+  "torch>=2.0"
+]
+tensorflow = [
+  "tensorflow>=2.15"
+]
+huggingface = [
+  "transformers>=4.35",
+  "safetensors"
+]
 docs = [
   "mkdocs-material>=9.0",
   "mkdocstrings[python]>=0.24"
 ]
 all = [
-  "metrics_lie[dev,web,onnx,boosting,fairness,drift,security,mlflow,metrics,docs]"
+  "metrics_lie[dev,web,onnx,boosting,fairness,drift,security,mlflow,metrics,pytorch,tensorflow,huggingface,docs]"
 ]
 
 [project.scripts]
