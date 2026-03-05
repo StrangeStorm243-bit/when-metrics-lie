@@ -41,6 +41,11 @@ def run(
     task: Optional[str] = typer.Option(
         None, "--task", "-t", help="Override task type."
     ),
+    trust_pickle: bool = typer.Option(
+        False,
+        "--trust-pickle",
+        help="Allow loading pickle model files (they can execute arbitrary code).",
+    ),
 ) -> None:
     """Run an experiment from a spec file."""
     from metrics_lie.execution import run_from_spec_dict
@@ -52,6 +57,8 @@ def run(
         spec_dict["model_source"]["path"] = model
     if task:
         spec_dict["task"] = task
+    if trust_pickle and "model_source" in spec_dict:
+        spec_dict["model_source"]["trust_pickle"] = True
 
     run_id = run_from_spec_dict(spec_dict, spec_path_for_notes=spec)
     typer.echo(f"Run ID: {run_id}")
@@ -71,6 +78,11 @@ def evaluate(
         200, "--trials", "-n", help="Monte Carlo trials."
     ),
     seed: int = typer.Option(42, "--seed", help="Random seed."),
+    trust_pickle: bool = typer.Option(
+        False,
+        "--trust-pickle",
+        help="Allow loading pickle model files (they can execute arbitrary code).",
+    ),
 ) -> None:
     """Quick evaluation: model + dataset -> results."""
     from metrics_lie.sdk import evaluate as sdk_evaluate
@@ -83,6 +95,7 @@ def evaluate(
         task=task,
         n_trials=n_trials,
         seed=seed,
+        trust_pickle=trust_pickle,
     )
     typer.echo(f"Run ID: {result.run_id}")
     typer.echo(f"Baseline {metric} = {result.baseline.mean:.6f}")
