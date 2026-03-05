@@ -5,6 +5,7 @@ __version__ = "0.3.0"
 
 from metrics_lie.sdk import compare, evaluate, evaluate_file, log_to_mlflow, score
 from metrics_lie.schema import ResultBundle
+from metrics_lie.builders import Dataset, Model
 from metrics_lie.spec import ExperimentSpec
 from metrics_lie import presets
 from metrics_lie.catalog import list_metrics, list_model_formats, list_scenarios
@@ -26,4 +27,6 @@ __all__ = [
     "display",
     "format_summary",
     "format_comparison",
+    "Dataset",
+    "Model",
 ]
