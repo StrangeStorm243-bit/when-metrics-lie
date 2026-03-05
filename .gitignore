@@ -41,4 +41,5 @@ runs/
 
 .next/
 node_modules/
-.env.local
+.env.localsite/
+site/

@@ -23,6 +23,11 @@ def _http_factory(**kwargs):
     return HTTPAdapter(**kwargs)
 
 
+def _mlflow_factory(**kwargs):
+    from metrics_lie.model.adapters.mlflow_adapter import MLflowAdapter
+    return MLflowAdapter(**kwargs)
+
+
 _DEFAULT_REGISTRY: AdapterRegistry | None = None
 
 
@@ -70,6 +75,13 @@ def get_default_registry() -> AdapterRegistry:
     try:
         import catboost  # noqa: F401
         reg.register("catboost", factory=_boosting_factory, extensions={".cbm"})
+    except ImportError:
+        pass
+
+    # MLflow (optional)
+    try:
+        import mlflow  # noqa: F401
+        reg.register("mlflow", factory=_mlflow_factory, extensions=set())
     except ImportError:
         pass
 
