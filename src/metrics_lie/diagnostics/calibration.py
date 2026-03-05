@@ -51,6 +51,34 @@ def expected_calibration_error(
     return float(ece)
 
 
+def per_class_ece(
+    y_true: np.ndarray,
+    y_proba: np.ndarray,
+    n_bins: int = 10,
+) -> dict[int, float]:
+    """Per-class ECE for multiclass problems.
+
+    Computes ECE for each class in a one-vs-rest manner.
+
+    Args:
+        y_true: Integer class labels (n_samples,)
+        y_proba: Probability matrix (n_samples, n_classes)
+        n_bins: Number of calibration bins
+
+    Returns:
+        Dict mapping class index to ECE value.
+    """
+    if y_proba.ndim != 2:
+        raise ValueError(f"per_class_ece requires 2D probability matrix, got shape {y_proba.shape}")
+    n_classes = y_proba.shape[1]
+    result: dict[int, float] = {}
+    for c in range(n_classes):
+        binary_true = (y_true == c).astype(int)
+        binary_proba = y_proba[:, c]
+        result[c] = float(expected_calibration_error(binary_true, binary_proba, n_bins=n_bins))
+    return result
+
+
 def multiclass_ece(
     y_true: np.ndarray, y_proba: np.ndarray, n_bins: int = 10
 ) -> float:

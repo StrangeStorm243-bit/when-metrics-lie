@@ -4,7 +4,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from metrics_lie.diagnostics.calibration import multiclass_brier_score, multiclass_ece
+from metrics_lie.diagnostics.calibration import multiclass_brier_score, multiclass_ece, per_class_ece
 
 
 def test_multiclass_brier_perfect():
@@ -62,3 +62,38 @@ def test_multiclass_ece_returns_float():
     ece = multiclass_ece(y_true, y_proba)
     assert isinstance(ece, float)
     assert 0.0 <= ece <= 1.0
+
+
+def test_per_class_ece_returns_dict():
+    rng = np.random.default_rng(42)
+    y_true = rng.integers(0, 3, size=100)
+    y_proba = rng.dirichlet([1, 1, 1], size=100)
+
+    result = per_class_ece(y_true, y_proba, n_bins=5)
+    assert isinstance(result, dict)
+    assert len(result) == 3
+    for c in range(3):
+        assert c in result
+        assert 0.0 <= result[c] <= 1.0
+
+
+def test_per_class_ece_well_calibrated():
+    # Create well-calibrated predictions
+    n = 500
+    rng = np.random.default_rng(42)
+    y_true = rng.integers(0, 3, size=n)
+    y_proba = np.zeros((n, 3))
+    for i in range(n):
+        y_proba[i, y_true[i]] = 0.8
+        others = [c for c in range(3) if c != y_true[i]]
+        y_proba[i, others[0]] = 0.1
+        y_proba[i, others[1]] = 0.1
+
+    result = per_class_ece(y_true, y_proba, n_bins=5)
+    for c in range(3):
+        assert result[c] < 0.3  # Should be reasonably calibrated
+
+
+def test_per_class_ece_rejects_1d():
+    with pytest.raises(ValueError, match="2D"):
+        per_class_ece(np.array([0, 1, 2]), np.array([0.5, 0.3, 0.2]))
