@@ -15,6 +15,7 @@ class SurfaceType(str, Enum):
     PROBABILITY = "probability"
     SCORE = "score"
     CONTINUOUS = "continuous"
+    TEXT = "text"
 
 
 class CalibrationState(str, Enum):

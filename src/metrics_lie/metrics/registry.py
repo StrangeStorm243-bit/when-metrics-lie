@@ -203,6 +203,49 @@ METRIC_REQUIREMENTS: list[MetricRequirement] = [
         task_types=frozenset({"regression"}),
         higher_is_better=False,
     ),
+    MetricRequirement(
+        metric_id="mape",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+        higher_is_better=False,
+    ),
+    MetricRequirement(
+        metric_id="explained_variance",
+        requires_surface={SurfaceType.CONTINUOUS},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"regression"}),
+    ),
+    # --- Ranking metrics ---
+    MetricRequirement(
+        metric_id="ndcg",
+        requires_surface={SurfaceType.SCORE, SurfaceType.PROBABILITY},
+        requires_labels=True,
+        min_samples=2,
+        requires_both_classes=False,
+        task_types=frozenset({"ranking"}),
+    ),
+    # --- NLP metrics (conditional on HF evaluate) ---
+    MetricRequirement(
+        metric_id="rouge_l",
+        requires_surface={SurfaceType.TEXT},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"text_generation"}),
+    ),
+    MetricRequirement(
+        metric_id="bleu",
+        requires_surface={SurfaceType.TEXT},
+        requires_labels=True,
+        min_samples=1,
+        requires_both_classes=False,
+        task_types=frozenset({"text_generation"}),
+    ),
 ]
 
 METRIC_DIRECTION: dict[str, bool] = {
