@@ -54,11 +54,28 @@ def filter_compatible_scenarios(
 
 # Task-type compatibility: which scenarios apply to each task type.
 SCENARIO_TASK_COMPAT: dict[str, set[str]] = {
-    "binary_classification": {"label_noise", "score_noise", "class_imbalance", "threshold_gaming"},
-    "multiclass_classification": {"label_noise", "score_noise", "class_imbalance"},
+    "binary_classification": {
+        "label_noise", "score_noise", "class_imbalance", "threshold_gaming",
+        "missing_features", "feature_corruption", "covariate_shift",
+        "demographic_swap", "temporal_shift", "label_quality",
+    },
+    "multiclass_classification": {
+        "label_noise", "score_noise", "class_imbalance",
+        "missing_features", "feature_corruption", "covariate_shift",
+        "demographic_swap", "temporal_shift", "label_quality",
+    },
     "multilabel_classification": {"label_noise", "class_imbalance"},
-    "regression": {"label_noise", "score_noise"},
+    "regression": {
+        "label_noise", "score_noise",
+        "missing_features", "feature_corruption", "covariate_shift",
+        "temporal_shift", "label_quality",
+    },
     "ranking": {"label_noise", "score_noise"},
+    "text_classification": {
+        "typo_injection", "synonym_replacement", "demographic_swap",
+        "label_quality", "label_noise",
+    },
+    "text_generation": {"typo_injection", "synonym_replacement", "demographic_swap"},
 }
 
 
