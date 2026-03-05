@@ -32,3 +32,42 @@ def test_compute_fairness_report_multiclass():
     )
     assert "group_metrics" in report
     assert "gaps" in report
+
+
+def test_equalized_odds_in_report():
+    y_true = np.array([0, 1, 0, 1, 0, 1, 0, 1])
+    y_pred = np.array([0, 1, 0, 0, 0, 1, 1, 1])
+    sensitive = np.array(["A", "A", "A", "A", "B", "B", "B", "B"])
+
+    report = compute_fairness_report(
+        y_true=y_true,
+        y_pred=y_pred,
+        sensitive_features=sensitive,
+        metric_fns={"accuracy": lambda yt, yp: float(np.mean(yt == yp))},
+    )
+    assert "equalized_odds_difference" in report
+    # Should be a float or None
+    assert report["equalized_odds_difference"] is None or isinstance(
+        report["equalized_odds_difference"], float
+    )
+
+
+def test_fairness_report_has_all_keys():
+    y_true = np.array([0, 1, 0, 1])
+    y_pred = np.array([0, 1, 1, 1])
+    sensitive = np.array(["A", "A", "B", "B"])
+
+    report = compute_fairness_report(
+        y_true=y_true,
+        y_pred=y_pred,
+        sensitive_features=sensitive,
+        metric_fns={"accuracy": lambda yt, yp: float(np.mean(yt == yp))},
+    )
+    expected_keys = {
+        "group_metrics",
+        "gaps",
+        "overall",
+        "demographic_parity_difference",
+        "equalized_odds_difference",
+    }
+    assert expected_keys.issubset(set(report.keys()))

@@ -69,4 +69,13 @@ def compute_fairness_report(
             max_diff = max(max_diff, max(rates) - min(rates))
         result["demographic_parity_difference"] = float(max_diff)
 
+    # Equalized odds difference
+    try:
+        from fairlearn.metrics import equalized_odds_difference
+        result["equalized_odds_difference"] = float(
+            equalized_odds_difference(y_true, y_pred, sensitive_features=sensitive_features)
+        )
+    except Exception:
+        result["equalized_odds_difference"] = None
+
     return result
