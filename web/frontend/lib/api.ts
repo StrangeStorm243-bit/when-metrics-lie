@@ -255,10 +255,11 @@ export async function getMetricPresets(taskType?: string): Promise<MetricPreset[
 }
 
 /**
- * Get available stress suite presets.
+ * Get available stress suite presets, optionally filtered by task type.
  */
-export async function getStressSuitePresets(): Promise<StressSuitePreset[]> {
-  return apiFetch<StressSuitePreset[]>("/presets/stress-suites");
+export async function getStressSuitePresets(taskType?: string): Promise<StressSuitePreset[]> {
+  const params = taskType ? `?task_type=${encodeURIComponent(taskType)}` : "";
+  return apiFetch<StressSuitePreset[]>(`/presets/stress-suites${params}`);
 }
 
 /**

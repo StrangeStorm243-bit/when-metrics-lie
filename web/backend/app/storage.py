@@ -135,20 +135,24 @@ STRESS_SUITE_PRESETS = [
         "id": "balanced",
         "name": "Balanced Suite",
         "description": "Balanced evaluation with worst-case scenario aggregation",
+        "scenarios": ["label_noise", "score_noise", "class_imbalance", "threshold_gaming"],
     },
     {
         "id": "risk_averse",
         "name": "Risk-Averse Suite",
         "description": "Heavy penalties for calibration and subgroup regressions",
+        "scenarios": ["label_noise", "score_noise", "class_imbalance", "threshold_gaming"],
     },
     {
         "id": "performance_first",
         "name": "Performance-First Suite",
         "description": "Emphasizes mean metric improvement with relaxed constraints",
+        "scenarios": ["label_noise", "score_noise"],
     },
     {
         "id": "comprehensive",
         "name": "Comprehensive Suite",
         "description": "Full scenario coverage with all diagnostics enabled",
+        "scenarios": ["label_noise", "score_noise", "class_imbalance", "threshold_gaming"],
     },
 ]

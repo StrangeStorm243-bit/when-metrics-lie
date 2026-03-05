@@ -63,7 +63,7 @@ export default function NewExperimentPage() {
       try {
         const [metricsData, suitesData, datasetsData] = await Promise.all([
           getMetricPresets(taskType),
-          getStressSuitePresets(),
+          getStressSuitePresets(taskType),
           getDatasetPresets(),
         ]);
         setMetrics(metricsData);
@@ -191,7 +191,7 @@ export default function NewExperimentPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="task-type">Task Type</Label>
-              <Select value={taskType} onValueChange={(v) => { setTaskType(v); setMetricId(""); }}>
+              <Select value={taskType} onValueChange={(v) => { setTaskType(v); setMetricId(""); setStressSuiteId(""); }}>
                 <SelectTrigger id="task-type">
                   <SelectValue placeholder="Select task type" />
                 </SelectTrigger>
