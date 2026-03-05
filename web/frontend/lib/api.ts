@@ -25,6 +25,7 @@ export interface ExperimentSummary {
   name: string;
   metric_id: string;
   stress_suite_id: string;
+  task_type: string;
   status: "created" | "running" | "completed" | "failed";
   created_at: string;
   last_run_at: string | null;
@@ -114,6 +115,15 @@ export interface ResultSummary {
       worst_overall_scenario: string | null;
     };
   } | null;
+  task_type: string;
+  confusion_matrix?: number[][] | null;
+  class_names?: string[] | null;
+  per_class_metrics?: Record<string, { precision: number; recall: number; f1: number; support: number }> | null;
+  residual_stats?: {
+    mean: number; std: number; min: number; max: number; median: number;
+    mae: number; rmse: number;
+  } | null;
+  ranking_metrics?: Record<string, number> | null;
   generated_at: string;
 }
 
@@ -239,8 +249,9 @@ export async function getExperiment(experimentId: string): Promise<ExperimentSum
 /**
  * Get available metric presets.
  */
-export async function getMetricPresets(): Promise<MetricPreset[]> {
-  return apiFetch<MetricPreset[]>("/presets/metrics");
+export async function getMetricPresets(taskType?: string): Promise<MetricPreset[]> {
+  const params = taskType ? `?task_type=${encodeURIComponent(taskType)}` : "";
+  return apiFetch<MetricPreset[]>(`/presets/metrics${params}`);
 }
 
 /**
@@ -375,6 +386,8 @@ export interface ModelUploadResponse {
   model_class: string;
   capabilities: Record<string, boolean>;
   file_size_bytes: number;
+  task_type: string;
+  n_classes: number | null;
 }
 
 export interface ModelMeta {
@@ -387,7 +400,7 @@ export interface ModelMeta {
 }
 
 /**
- * Upload a sklearn pickle model (binary classification, predict_proba).
+ * Upload a model file (supports pickle, ONNX, boosting formats).
  */
 export async function uploadModel(file: File): Promise<ModelUploadResponse> {
   const formData = new FormData();
@@ -474,5 +487,20 @@ export async function compareRuns(
     method: "POST",
     body: JSON.stringify({ run_a: runA, run_b: runB }),
   });
+}
+
+// ---------------------------------------------------------------------------
+// Model formats
+// ---------------------------------------------------------------------------
+
+export interface SupportedFormat {
+  format_id: string;
+  name: string;
+  extensions: string[];
+  task_types: string[];
+}
+
+export async function getModelFormats(): Promise<SupportedFormat[]> {
+  return apiFetch<SupportedFormat[]>("/models/formats");
 }
 

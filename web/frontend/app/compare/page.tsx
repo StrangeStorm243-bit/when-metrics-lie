@@ -902,6 +902,11 @@ export default function ComparePage() {
               <div>
                 <div style={{ fontSize: "0.875rem", color: "#666", marginBottom: "0.25rem" }}>
                   Run A
+                  {resultA.task_type && resultA.task_type !== "binary_classification" && (
+                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded ml-2">
+                      {resultA.task_type.replace(/_/g, " ")}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: "2rem", fontWeight: "bold" }}>
                   {resultA.headline_score.toFixed(4)}
@@ -910,6 +915,11 @@ export default function ComparePage() {
               <div>
                 <div style={{ fontSize: "0.875rem", color: "#666", marginBottom: "0.25rem" }}>
                   Run B
+                  {resultB.task_type && resultB.task_type !== "binary_classification" && (
+                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded ml-2">
+                      {resultB.task_type.replace(/_/g, " ")}
+                    </span>
+                  )}
                 </div>
                 <div style={{ fontSize: "2rem", fontWeight: "bold" }}>
                   {resultB.headline_score.toFixed(4)}

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
 from ..storage import METRIC_PRESETS, STRESS_SUITE_PRESETS
 
@@ -21,9 +21,13 @@ router = APIRouter(prefix="/presets", tags=["presets"])
 
 
 @router.get("/metrics")
-async def get_metric_presets():
-    """Get available metric presets."""
-    return METRIC_PRESETS
+async def get_metric_presets(
+    task_type: str | None = Query(None, description="Filter by task type"),
+):
+    """Get available metric presets, optionally filtered by task type."""
+    if task_type is None:
+        return METRIC_PRESETS
+    return [p for p in METRIC_PRESETS if task_type in p.get("task_types", [])]
 
 
 @router.get("/stress-suites")

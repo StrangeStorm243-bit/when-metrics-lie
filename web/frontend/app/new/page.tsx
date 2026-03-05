@@ -28,8 +28,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+const TASK_TYPES = [
+  { id: "binary_classification", name: "Binary Classification" },
+  { id: "multiclass_classification", name: "Multiclass Classification" },
+  { id: "regression", name: "Regression" },
+  { id: "ranking", name: "Ranking" },
+];
+
 export default function NewExperimentPage() {
   const router = useRouter();
+  const [taskType, setTaskType] = useState("binary_classification");
   const [name, setName] = useState("");
   const [metricId, setMetricId] = useState("");
   const [stressSuiteId, setStressSuiteId] = useState("");
@@ -43,6 +51,9 @@ export default function NewExperimentPage() {
   const [modelUploadError, setModelUploadError] = useState<string | null>(null);
   const [modelUploading, setModelUploading] = useState(false);
   const [featureCols, setFeatureCols] = useState("y_score");
+  const [yTrueCol, setYTrueCol] = useState("y_true");
+  const [yScoreCol, setYScoreCol] = useState("y_score");
+  const [threshold, setThreshold] = useState(0.5);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loadingPresets, setLoadingPresets] = useState(true);
@@ -51,7 +62,7 @@ export default function NewExperimentPage() {
     async function loadPresets() {
       try {
         const [metricsData, suitesData, datasetsData] = await Promise.all([
-          getMetricPresets(),
+          getMetricPresets(taskType),
           getStressSuitePresets(),
           getDatasetPresets(),
         ]);
@@ -74,7 +85,7 @@ export default function NewExperimentPage() {
       }
     }
     loadPresets();
-  }, []);
+  }, [taskType]);
 
   async function handleModelUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -100,7 +111,11 @@ export default function NewExperimentPage() {
     setError(null);
     setLoading(true);
 
-    const config: Record<string, unknown> = {};
+    const config: Record<string, unknown> = {
+      task_type: taskType,
+      y_true_col: yTrueCol,
+      y_score_col: yScoreCol,
+    };
     if (datasetPath) config.dataset_path = datasetPath;
     if (modelId) {
       config.model_id = modelId;
@@ -111,7 +126,9 @@ export default function NewExperimentPage() {
       if (config.feature_cols instanceof Array && (config.feature_cols as string[]).length === 0) {
         (config.feature_cols as string[]) = ["y_score"];
       }
-      config.threshold = 0.5;
+    }
+    if (taskType !== "regression" && taskType !== "ranking") {
+      config.threshold = threshold;
     }
 
     try {
@@ -172,6 +189,20 @@ export default function NewExperimentPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="task-type">Task Type</Label>
+              <Select value={taskType} onValueChange={(v) => { setTaskType(v); setMetricId(""); }}>
+                <SelectTrigger id="task-type">
+                  <SelectValue placeholder="Select task type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TASK_TYPES.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">
                 Experiment Name <span className="text-destructive">*</span>
@@ -260,12 +291,12 @@ export default function NewExperimentPage() {
             <div className="space-y-2">
               <Label>Model (optional)</Label>
               <p className="text-xs text-muted-foreground">
-                Upload a sklearn pickle model (binary classification, must support predict_proba).
+                Supported: sklearn (.pkl, .joblib), ONNX (.onnx), XGBoost (.ubj, .xgb), LightGBM (.lgb), CatBoost (.cbm)
               </p>
               <div className="flex gap-2 items-center">
                 <Input
                   type="file"
-                  accept=".pkl"
+                  accept=".pkl,.joblib,.onnx,.ubj,.xgb,.lgb,.cbm"
                   onChange={handleModelUpload}
                   disabled={loading || modelUploading}
                   className="max-w-xs"
@@ -297,6 +328,29 @@ export default function NewExperimentPage() {
                 </div>
               )}
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="y-true-col">Ground Truth Column</Label>
+                <Input id="y-true-col" value={yTrueCol} onChange={(e) => setYTrueCol(e.target.value)}
+                  placeholder="y_true" />
+              </div>
+              <div>
+                <Label htmlFor="y-score-col">
+                  {taskType === "regression" ? "Prediction Column" : "Score/Probability Column"}
+                </Label>
+                <Input id="y-score-col" value={yScoreCol} onChange={(e) => setYScoreCol(e.target.value)}
+                  placeholder={taskType === "regression" ? "y_pred" : "y_score"} />
+              </div>
+            </div>
+
+            {(taskType === "binary_classification" || taskType === "multiclass_classification") && (
+              <div className="space-y-2">
+                <Label htmlFor="threshold">Decision Threshold</Label>
+                <Input id="threshold" type="number" step="0.01" min="0" max="1"
+                  value={threshold} onChange={(e) => setThreshold(parseFloat(e.target.value) || 0.5)} />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (optional)</Label>

@@ -12,12 +12,48 @@ from fastapi import APIRouter, Depends, File, HTTPException, status, UploadFile
 from ..auth import get_current_user
 from ..config import get_settings
 from ..contracts import ModelMeta, ModelUploadResponse
-from ..model_validation import validate_sklearn_pickle
 from ..storage_backend import get_storage_backend
 
 router = APIRouter(prefix="/models", tags=["models"])
 
 MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+
+
+@router.get("/formats")
+async def list_supported_formats():
+    """List supported model formats and their accepted extensions."""
+    return [
+        {
+            "format_id": "pickle",
+            "name": "sklearn Pickle",
+            "extensions": [".pkl", ".joblib"],
+            "task_types": ["binary_classification", "multiclass_classification", "regression"],
+        },
+        {
+            "format_id": "onnx",
+            "name": "ONNX",
+            "extensions": [".onnx"],
+            "task_types": ["binary_classification", "multiclass_classification", "regression", "ranking"],
+        },
+        {
+            "format_id": "xgboost",
+            "name": "XGBoost",
+            "extensions": [".ubj", ".xgb"],
+            "task_types": ["binary_classification", "multiclass_classification", "regression", "ranking"],
+        },
+        {
+            "format_id": "lightgbm",
+            "name": "LightGBM",
+            "extensions": [".lgb"],
+            "task_types": ["binary_classification", "multiclass_classification", "regression", "ranking"],
+        },
+        {
+            "format_id": "catboost",
+            "name": "CatBoost",
+            "extensions": [".cbm"],
+            "task_types": ["binary_classification", "multiclass_classification", "regression", "ranking"],
+        },
+    ]
 
 
 def _repo_root() -> Path:
@@ -48,11 +84,21 @@ async def upload_model(
     file: UploadFile = File(...),
     owner_id: str = Depends(get_current_user),
 ) -> ModelUploadResponse:
-    """Upload and validate an sklearn pickle model (binary classification, predict_proba)."""
-    if not file.filename or not file.filename.lower().endswith(".pkl"):
+    """Upload and validate a model file (supports pickle, ONNX, boosting formats)."""
+    from ..model_validation import validate_model, ACCEPTED_EXTENSIONS
+    from pathlib import PurePosixPath
+
+    if not file.filename:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="File must have .pkl extension",
+            detail="File must have a filename",
+        )
+
+    ext = PurePosixPath(file.filename).suffix.lower()
+    if ext not in ACCEPTED_EXTENSIONS:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Unsupported extension: {ext}. Accepted: {', '.join(sorted(ACCEPTED_EXTENSIONS.keys()))}",
         )
 
     raw = await file.read()
@@ -62,7 +108,14 @@ async def upload_model(
             detail=f"File size exceeds {MAX_UPLOAD_BYTES // (1024*1024)} MB limit",
         )
 
-    result = validate_sklearn_pickle(raw)
+    # Extract task_type from query or default
+    # For now, try to auto-detect from validation. Default to binary.
+    result = validate_model(raw, ext, "binary_classification")
+
+    # If binary validation fails with n_classes error, retry as multiclass
+    if not result.valid and result.error and "Binary classification requires 2 classes" in result.error:
+        result = validate_model(raw, ext, "multiclass_classification")
+
     if not result.valid:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -73,10 +126,15 @@ async def upload_model(
     settings = get_settings()
     now = datetime.now(timezone.utc).isoformat()
 
+    # Store with original extension (not just .pkl)
+    storage_suffix = ext or ".pkl"
+
     meta = {
         "model_id": model_id,
-        "original_filename": file.filename or "model.pkl",
+        "original_filename": file.filename,
         "model_class": result.model_class,
+        "task_type": result.task_type,
+        "n_classes": result.n_classes,
         "capabilities": result.capabilities,
         "file_size_bytes": len(raw),
         "uploaded_at": now,
@@ -85,9 +143,9 @@ async def upload_model(
 
     if settings.is_hosted:
         backend = get_storage_backend()
-        pkl_key = _model_key(owner_id, model_id, ".pkl")
+        file_key = _model_key(owner_id, model_id, storage_suffix)
         meta_key = _model_key(owner_id, model_id, ".meta.json")
-        backend.upload(pkl_key, raw, content_type="application/octet-stream")
+        backend.upload(file_key, raw, content_type="application/octet-stream")
         backend.upload(
             meta_key,
             json.dumps(meta, indent=2).encode("utf-8"),
@@ -95,15 +153,17 @@ async def upload_model(
         )
     else:
         local_dir = _models_dir_local(owner_id)
-        pkl_path = local_dir / f"{model_id}.pkl"
+        file_path = local_dir / f"{model_id}{storage_suffix}"
         meta_path = local_dir / f"{model_id}.meta.json"
-        pkl_path.write_bytes(raw)
+        file_path.write_bytes(raw)
         meta_path.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     return ModelUploadResponse(
         model_id=model_id,
         original_filename=meta["original_filename"],
         model_class=result.model_class,
+        task_type=result.task_type,
+        n_classes=result.n_classes,
         capabilities=result.capabilities,
         file_size_bytes=len(raw),
     )

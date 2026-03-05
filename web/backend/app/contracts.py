@@ -32,6 +32,10 @@ class ExperimentSummary(BaseModel):
     name: str = Field(..., description="Experiment name")
     metric_id: str = Field(..., description="Metric identifier")
     stress_suite_id: str = Field(..., description="Stress suite identifier")
+    task_type: str = Field(
+        "binary_classification",
+        description="Task type: binary_classification, multiclass_classification, regression, ranking",
+    )
     status: Literal["created", "running", "completed", "failed"] = Field(
         ..., description="Current status"
     )
@@ -125,6 +129,25 @@ class ResultSummary(BaseModel):
         None,
         description="Phase 8 multi-metric dashboard summary (only for multi-metric runs)",
     )
+    task_type: str = Field(
+        "binary_classification",
+        description="Task type for this result",
+    )
+    confusion_matrix: Optional[list[list[int]]] = Field(
+        None, description="Confusion matrix [n_classes x n_classes] (classification only)"
+    )
+    class_names: Optional[list[str]] = Field(
+        None, description="Class label names (classification only)"
+    )
+    per_class_metrics: Optional[dict[str, dict[str, float]]] = Field(
+        None, description="Per-class precision/recall/f1 (multiclass only)"
+    )
+    residual_stats: Optional[dict[str, float]] = Field(
+        None, description="Residual statistics: mean, std, min, max, median (regression only)"
+    )
+    ranking_metrics: Optional[dict[str, float]] = Field(
+        None, description="Ranking metrics: ndcg, mrr, map (ranking only)"
+    )
     generated_at: datetime = Field(
         ..., description="Timestamp when results were generated"
     )
@@ -151,6 +174,13 @@ class ModelUploadResponse(BaseModel):
     model_id: str = Field(..., description="Content-addressable model ID (SHA256)")
     original_filename: str = Field(..., description="Original file name")
     model_class: str = Field(..., description="Model class name")
+    task_type: str = Field(
+        "binary_classification",
+        description="Validated task type for this model",
+    )
+    n_classes: Optional[int] = Field(
+        None, description="Number of output classes (classification only)"
+    )
     capabilities: dict = Field(
         default_factory=dict,
         description="predict, predict_proba, decision_function",
@@ -231,3 +261,11 @@ class SharedRunResponse(BaseModel):
         default_factory=dict,
         description="Phase 5 analysis artifacts",
     )
+
+
+class SupportedFormat(BaseModel):
+    """A supported model format."""
+    format_id: str = Field(..., description="Format identifier")
+    name: str = Field(..., description="Human-readable name")
+    extensions: list[str] = Field(..., description="File extensions")
+    task_types: list[str] = Field(..., description="Supported task types")
