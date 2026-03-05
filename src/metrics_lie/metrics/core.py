@@ -7,12 +7,15 @@ from sklearn.metrics import (
     accuracy_score,
     average_precision_score,
     cohen_kappa_score,
+    explained_variance_score,
     f1_score,
     log_loss,
     matthews_corrcoef,
     max_error as sklearn_max_error,
     mean_absolute_error,
+    mean_absolute_percentage_error,
     mean_squared_error,
+    ndcg_score,
     precision_score,
     r2_score,
     recall_score,
@@ -164,20 +167,38 @@ def metric_max_error(y_true: np.ndarray, y_score: np.ndarray) -> float:
     return float(sklearn_max_error(y_true, y_score))
 
 
+def metric_mape(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Mean absolute percentage error."""
+    return float(mean_absolute_percentage_error(y_true, y_score))
+
+
+def metric_explained_variance(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """Explained variance score."""
+    return float(explained_variance_score(y_true, y_score))
+
+
+# --- Ranking metric functions ---
+
+
+def metric_ndcg(y_true: np.ndarray, y_score: np.ndarray) -> float:
+    """NDCG (Normalized Discounted Cumulative Gain)."""
+    return float(ndcg_score(y_true.reshape(1, -1), y_score.reshape(1, -1)))
+
+
 # Metric category sets (canonical source of truth).
 # Threshold metrics require a decision threshold to produce binary predictions.
 THRESHOLD_METRICS: set[str] = {"accuracy", "f1", "precision", "recall", "matthews_corrcoef"}
 # Calibration metrics measure probability calibration quality.
 CALIBRATION_METRICS: set[str] = {"brier_score", "ece"}
 # Ranking metrics evaluate score ordering without a threshold.
-RANKING_METRICS: set[str] = {"auc", "pr_auc", "logloss"}
+RANKING_METRICS: set[str] = {"auc", "pr_auc", "logloss", "ndcg"}
 # Multiclass metrics (no threshold -- use argmax or probability matrix directly).
 MULTICLASS_METRICS: set[str] = {
     "macro_f1", "weighted_f1", "macro_precision", "macro_recall",
     "macro_auc", "cohens_kappa", "top_k_accuracy",
 }
 # Regression metrics (continuous predictions, no threshold concept).
-REGRESSION_METRICS: set[str] = {"mae", "mse", "rmse", "r2", "max_error"}
+REGRESSION_METRICS: set[str] = {"mae", "mse", "rmse", "r2", "max_error", "mape", "explained_variance"}
 
 
 def compute_metric(
@@ -221,4 +242,17 @@ METRICS: Dict[str, Callable[..., float]] = {
     "rmse": metric_rmse,
     "r2": metric_r2,
     "max_error": metric_max_error,
+    "mape": metric_mape,
+    "explained_variance": metric_explained_variance,
+    "ndcg": metric_ndcg,
 }
+
+# Conditionally register NLP metrics if HF evaluate is available
+NLP_METRICS: set[str] = set()
+try:
+    from metrics_lie.metrics.nlp import metric_rouge_l, metric_bleu
+    METRICS["rouge_l"] = metric_rouge_l
+    METRICS["bleu"] = metric_bleu
+    NLP_METRICS = {"rouge_l", "bleu"}
+except ImportError:
+    pass

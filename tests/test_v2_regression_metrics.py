@@ -20,13 +20,13 @@ def regression_data():
     return y_true, y_pred
 
 
-@pytest.mark.parametrize("metric_id", ["mae", "mse", "rmse", "r2", "max_error"])
+@pytest.mark.parametrize("metric_id", ["mae", "mse", "rmse", "r2", "max_error", "mape", "explained_variance"])
 def test_regression_metric_registered(metric_id):
     assert metric_id in METRICS
 
 
 def test_regression_metrics_category():
-    expected = {"mae", "mse", "rmse", "r2", "max_error"}
+    expected = {"mae", "mse", "rmse", "r2", "max_error", "mape", "explained_variance"}
     assert expected == REGRESSION_METRICS
 
 
@@ -63,3 +63,23 @@ def test_max_error_value(regression_data):
     expected = sklearn_max_error(y_true, y_pred)
     result = METRICS["max_error"](y_true, y_pred)
     assert result == pytest.approx(expected)
+
+
+def test_mape_value():
+    y_true = np.array([100.0, 200.0, 300.0])
+    y_pred = np.array([110.0, 190.0, 310.0])
+    result = METRICS["mape"](y_true, y_pred)
+    assert 0.0 < result < 0.2  # ~5% MAPE
+
+
+def test_explained_variance_value(regression_data):
+    y_true, y_pred = regression_data
+    result = METRICS["explained_variance"](y_true, y_pred)
+    assert result > 0.9
+
+
+def test_mape_direction():
+    from metrics_lie.metrics.registry import METRIC_DIRECTION
+
+    assert METRIC_DIRECTION["mape"] is False
+    assert METRIC_DIRECTION["explained_variance"] is True
