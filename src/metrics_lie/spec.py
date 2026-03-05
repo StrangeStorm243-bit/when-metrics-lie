@@ -60,6 +60,11 @@ class ModelSourceSpec(BaseModel):
     positive_label: Optional[int] = Field(
         default=1, description="Positive label index."
     )
+    trust_pickle: bool = Field(
+        default=False,
+        description="Opt-in flag to allow loading pickle files. "
+        "Pickle files can execute arbitrary code.",
+    )
 
 
 class SurfaceSourceSpec(BaseModel):

@@ -154,6 +154,19 @@ def run_from_spec_dict(
 
         kind = spec.model_source.kind
 
+        if spec.model_source.path:
+            from metrics_lie.model.security import check_trust_policy, scan_model_file
+
+            check_trust_policy(
+                spec.model_source.path,
+                trust_pickle=spec.model_source.trust_pickle,
+            )
+            scan_result = scan_model_file(spec.model_source.path)
+            if not scan_result.is_safe:
+                raise ValueError(
+                    f"Model file failed security scan: {scan_result.issues}"
+                )
+
         if kind in ("pickle", "import"):
             # Legacy sklearn path
             from metrics_lie.model.adapter import SklearnAdapter

@@ -46,6 +46,9 @@ fairness = [
 drift = [
   "evidently>=0.4"
 ]
+security = [
+  "picklescan>=0.0.14",
+]
 mlflow = [
   "mlflow>=2.10"
 ]
@@ -54,7 +57,7 @@ docs = [
   "mkdocstrings[python]>=0.24"
 ]
 all = [
-  "metrics_lie[dev,web,onnx,boosting,fairness,drift,mlflow,docs]"
+  "metrics_lie[dev,web,onnx,boosting,fairness,drift,security,mlflow,docs]"
 ]
 
 [project.scripts]

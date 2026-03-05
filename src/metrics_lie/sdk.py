@@ -36,6 +36,7 @@ def evaluate(
     subgroup_col: str | None = None,
     sensitive_feature: str | None = None,
     reference_dataset: str | None = None,
+    trust_pickle: bool = False,
 ) -> ResultBundle:
     """Run a stress-test evaluation and return the ResultBundle."""
     from metrics_lie.execution import run_from_spec_dict
@@ -76,7 +77,11 @@ def evaluate(
     if model:
         model_path = Path(model)
         kind = _detect_model_kind(model_path)
-        spec_dict["model_source"] = {"kind": kind, "path": str(model_path)}
+        spec_dict["model_source"] = {
+            "kind": kind,
+            "path": str(model_path),
+            "trust_pickle": trust_pickle,
+        }
 
     if sensitive_feature:
         spec_dict["sensitive_feature"] = sensitive_feature
