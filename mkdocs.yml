@@ -1,0 +1,63 @@
+site_name: Spectra Documentation
+site_description: Scenario-first ML evaluation engine — stress-test models to find where metrics lie
+site_url: https://strangestorm243-bit.github.io/when-metrics-lie/
+repo_url: https://github.com/StrangeStorm243-bit/when-metrics-lie
+repo_name: StrangeStorm243-bit/when-metrics-lie
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: deep purple
+      accent: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.suggest
+
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Concepts: concepts.md
+  - CLI Reference: cli-reference.md
+  - API Reference:
+    - SDK: api-reference/sdk.md
+    - ExperimentSpec: api-reference/spec.md
+    - ResultBundle: api-reference/result-bundle.md
+  - Integrations:
+    - Model Formats: integrations/model-formats.md
+    - MLflow: integrations/mlflow.md
+  - Contributing: contributing.md
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: false
+            show_root_heading: true
+            heading_level: 3
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - pymdownx.details
+  - toc:
+      permalink: true

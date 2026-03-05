@@ -3,7 +3,7 @@ from __future__ import annotations
 
 __version__ = "0.3.0"
 
-from metrics_lie.sdk import compare, evaluate, evaluate_file, score
+from metrics_lie.sdk import compare, evaluate, evaluate_file, log_to_mlflow, score
 from metrics_lie.schema import ResultBundle
 from metrics_lie.spec import ExperimentSpec
 from metrics_lie import presets
@@ -16,6 +16,7 @@ __all__ = [
     "evaluate_file",
     "compare",
     "score",
+    "log_to_mlflow",
     "ResultBundle",
     "ExperimentSpec",
     "presets",

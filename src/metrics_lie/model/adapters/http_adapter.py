@@ -25,12 +25,21 @@ class HTTPAdapter:
         threshold: float = 0.5,
         positive_label: int = 1,
         headers: dict[str, str] | None = None,
+        protocol: str = "custom",
+        model_name: str = "",
     ) -> None:
-        self._endpoint = endpoint
+        self._endpoint = endpoint.rstrip("/")
         self._task_type = task_type
         self._threshold = threshold
         self._positive_label = positive_label
         self._headers = headers or {"Content-Type": "application/json"}
+        self._model_name = model_name
+
+        # Auto-detect KServe V2 from URL
+        if protocol == "custom" and "/v2/" in endpoint:
+            self._protocol = "kserve_v2"
+        else:
+            self._protocol = protocol
 
     @property
     def task_type(self) -> TaskType:
@@ -46,18 +55,85 @@ class HTTPAdapter:
             capabilities={"predict", "predict_proba"},
         )
 
+    def _build_kserve_url(self) -> str:
+        """Build KServe V2 inference URL."""
+        if self._model_name:
+            return f"{self._endpoint}/v2/models/{self._model_name}/infer"
+        # If endpoint already has /v2/ path, use as-is
+        return self._endpoint
+
+    def _format_kserve_request(self, X: np.ndarray) -> dict[str, Any]:
+        """Format input as KServe V2 tensor request."""
+        return {
+            "inputs": [
+                {
+                    "name": "input",
+                    "shape": list(X.shape),
+                    "datatype": "FP64",
+                    "data": X.flatten().tolist(),
+                }
+            ]
+        }
+
+    def _parse_kserve_response(self, data: dict[str, Any]) -> list[dict[str, Any]]:
+        """Parse KServe V2 tensor response into prediction dicts.
+
+        KServe V2 returns: {"outputs": [{"name": "output", "shape": [...], "data": [...]}]}
+        We convert to our internal format: [{"label": ..., "probability": ...}, ...]
+        """
+        outputs = data.get("outputs", [])
+        if not outputs:
+            return []
+
+        # Find the primary output
+        primary = outputs[0]
+        values = primary.get("data", [])
+        shape = primary.get("shape", [])
+
+        n_samples = shape[0] if shape else len(values)
+
+        # If shape is [n, classes] — treat as probabilities
+        if len(shape) == 2 and shape[1] > 1:
+            n_classes = shape[1]
+            preds = []
+            for i in range(n_samples):
+                row = values[i * n_classes : (i + 1) * n_classes]
+                label = int(np.argmax(row))
+                preds.append({"label": label, "probability": row})
+            return preds
+
+        # If shape is [n] — treat as labels or scores
+        preds = []
+        for i in range(n_samples):
+            val = values[i] if i < len(values) else 0
+            if isinstance(val, float) and 0.0 <= val <= 1.0:
+                label = int(val >= self._threshold)
+                preds.append({"label": label, "probability": [1.0 - val, val]})
+            else:
+                preds.append({"label": int(val)})
+        return preds
+
     def _call_endpoint(self, X: np.ndarray) -> list[dict[str, Any]]:
         import requests
 
-        payload = {"instances": X.tolist()}
+        if self._protocol == "kserve_v2":
+            url = self._build_kserve_url()
+            payload = self._format_kserve_request(X)
+        else:
+            url = self._endpoint
+            payload = {"instances": X.tolist()}
+
         resp = requests.post(
-            self._endpoint,
+            url,
             json=payload,
             headers=self._headers,
             timeout=60,
         )
         resp.raise_for_status()
         data = resp.json()
+
+        if self._protocol == "kserve_v2":
+            return self._parse_kserve_response(data)
         return data.get("predictions", [])
 
     def predict(self, X: np.ndarray) -> PredictionSurface:

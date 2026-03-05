@@ -146,6 +146,18 @@ def _detect_model_kind(path: Path) -> str:
     return kind_map.get(suffix, "pickle")
 
 
+def log_to_mlflow(
+    result: Any,
+    *,
+    run_id: str | None = None,
+    experiment_name: str | None = None,
+    tracking_uri: str | None = None,
+) -> str:
+    """Log a Spectra ResultBundle to MLflow. Requires: pip install metrics_lie[mlflow]"""
+    from metrics_lie.integrations.mlflow import log_to_mlflow as _log
+    return _log(result, run_id=run_id, experiment_name=experiment_name, tracking_uri=tracking_uri)
+
+
 def _normalize_scenarios(scenarios: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Normalize shorthand scenario dicts to ScenarioSpec format.
 
