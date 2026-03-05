@@ -12,7 +12,7 @@ from ..services.claude_client import get_claude_response
 
 router = APIRouter(prefix="/llm", tags=["llm"])
 
-SYSTEM_PROMPT = """You are a senior ML reliability analyst. You may ONLY use facts from the provided JSON context. If a claim is not supported by the context, say you are unsure. Do not speculate. Produce a concise answer with bullet points and include an 'Evidence:' section listing evidence keys present in the context (scenario:<id>, component:<name>, flag:<code>) when relevant."""
+SYSTEM_PROMPT = """You are a senior ML reliability analyst. You may ONLY use facts from the provided JSON context. If a claim is not supported by the context, say you are unsure. Do not speculate. Produce a concise answer with bullet points and include an 'Evidence:' section listing evidence keys present in the context (scenario:<id>, component:<name>, flag:<code>) when relevant. When task_type is provided, tailor your analysis to the specific evaluation concerns of that task type."""
 
 
 @router.post("/compare-explain", response_model=CompareExplainResponse)
@@ -26,10 +26,19 @@ async def compare_explain(request: CompareExplainRequest) -> CompareExplainRespo
         )
 
     # Build user content
-    context_json = json.dumps(request.context, indent=2)
+    # Enrich context with task_type if present
+    context = dict(request.context)
+    task_type = context.get("task_type")
+
+    context_json = json.dumps(context, indent=2)
     user_content_parts = [
         f"Intent: {request.intent}",
     ]
+
+    if task_type:
+        user_content_parts.append(
+            f"The model is evaluated as a {task_type} task."
+        )
 
     if request.focus:
         user_content_parts.append(f"Focus: {request.focus.type}={request.focus.key}")
