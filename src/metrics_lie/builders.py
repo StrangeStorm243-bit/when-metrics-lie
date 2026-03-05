@@ -117,6 +117,8 @@ class Model:
             d["path"] = self.path
         if self.endpoint:
             d["endpoint"] = self.endpoint
+        if self.uri:
+            d["uri"] = self.uri
         if self.trust_pickle:
             d["trust_pickle"] = True
         return d

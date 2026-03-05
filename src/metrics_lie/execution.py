@@ -242,6 +242,14 @@ def run_from_spec_dict(
                 threshold=spec.model_source.threshold or DEFAULT_THRESHOLD,
                 positive_label=spec.model_source.positive_label or 1,
             )
+        elif kind == "huggingface":
+            from metrics_lie.model.adapters.huggingface_adapter import HuggingFaceAdapter
+
+            model_path = spec.model_source.path or ""
+            adapter = HuggingFaceAdapter.from_model_path(
+                model_path,
+                task_type=TaskType(spec.task),
+            )
         else:
             raise ValueError(f"Unsupported model_source kind: {kind}")
 
