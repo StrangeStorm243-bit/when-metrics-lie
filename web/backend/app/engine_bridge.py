@@ -73,7 +73,7 @@ def _get_default_scenarios(stress_suite_id: str, task_type: str = "binary_classi
         return classification_scenarios
 
 
-def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
+def _get_dataset_path(create_req: ExperimentCreateRequest, owner_id: str = "anonymous") -> Path:
     """
     Determine dataset path using config or candidate fallbacks.
 
@@ -85,6 +85,18 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
     """
     repo_root = _find_repo_root()
     searched_locations = []
+
+    # Check dataset_id first (uploaded datasets)
+    if "dataset_id" in create_req.config:
+        dataset_id = create_req.config["dataset_id"]
+        ds_path = repo_root / ".spectra_ui" / "datasets" / owner_id / f"{dataset_id}.csv"
+        searched_locations.append(f"config['dataset_id']: {ds_path}")
+        if ds_path.exists() and ds_path.is_file():
+            print(f"[DEBUG] Using uploaded dataset: {ds_path}")
+            return ds_path.resolve()
+        raise ValueError(
+            f"Uploaded dataset {dataset_id} not found at {ds_path}"
+        )
 
     # Check config first
     if "dataset_path" in create_req.config:
@@ -161,9 +173,9 @@ def _get_dataset_path(create_req: ExperimentCreateRequest) -> Path:
     )
 
 
-def _get_default_dataset(create_req: ExperimentCreateRequest, task_type: str = "binary_classification") -> dict:
+def _get_default_dataset(create_req: ExperimentCreateRequest, task_type: str = "binary_classification", owner_id: str = "anonymous") -> dict:
     """Get default dataset configuration based on task type."""
-    dataset_path = _get_dataset_path(create_req)
+    dataset_path = _get_dataset_path(create_req, owner_id=owner_id)
     path_str = str(dataset_path.resolve())
 
     dataset_dict: dict = {
@@ -245,7 +257,7 @@ def run_experiment(
     """
     # Build ExperimentSpec from create_req
     task_type = create_req.config.get("task_type", "binary_classification") if create_req.config else "binary_classification"
-    dataset_dict = _get_default_dataset(create_req, task_type)
+    dataset_dict = _get_default_dataset(create_req, task_type, owner_id=owner_id)
     scenarios = _get_default_scenarios(create_req.stress_suite_id, task_type)
 
     spec_dict = {

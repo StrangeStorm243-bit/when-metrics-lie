@@ -70,3 +70,28 @@ def test_upload_rejects_non_csv(tmp_path, monkeypatch):
 
     assert response.status_code == 422
     assert "csv" in response.json()["detail"].lower()
+
+
+def test_engine_bridge_resolves_dataset_id():
+    """Engine bridge should resolve dataset_id to the uploaded CSV path."""
+    pytest.importorskip("fastapi")
+    from web.backend.app.engine_bridge import _get_dataset_path
+    from web.backend.app.contracts import ExperimentCreateRequest
+    from web.backend.app.routers.datasets import _datasets_dir_local
+
+    local_dir = _datasets_dir_local("anonymous")
+    fake_id = "abc123"
+    csv_path = local_dir / f"{fake_id}.csv"
+    csv_path.write_text("y_true,y_score\n1,0.9\n0,0.1\n")
+
+    try:
+        req = ExperimentCreateRequest(
+            name="test",
+            metric_id="auc",
+            stress_suite_id="balanced",
+            config={"dataset_id": fake_id},
+        )
+        result = _get_dataset_path(req, owner_id="anonymous")
+        assert result == csv_path.resolve()
+    finally:
+        csv_path.unlink(missing_ok=True)
