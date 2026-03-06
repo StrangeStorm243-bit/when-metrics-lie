@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.git/
+.github/
+node_modules/
+.spectra_registry/
+.spectra_ui/
+runs/
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
