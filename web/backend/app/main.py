@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routers import compare, experiments, llm, models, presets, results, share
+from .routers import compare, datasets, experiments, llm, models, presets, results, share
 
 app = FastAPI(
     title="Spectra API",
@@ -25,6 +25,7 @@ app.add_middleware(
 
 # Include routers
 app.include_router(compare.router)
+app.include_router(datasets.router)
 app.include_router(experiments.router)
 app.include_router(models.router)
 app.include_router(presets.router)

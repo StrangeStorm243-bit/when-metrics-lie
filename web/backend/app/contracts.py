@@ -269,3 +269,20 @@ class SupportedFormat(BaseModel):
     name: str = Field(..., description="Human-readable name")
     extensions: list[str] = Field(..., description="File extensions")
     task_types: list[str] = Field(..., description="Supported task types")
+
+
+# ---------------------------------------------------------------------------
+# Dataset upload
+# ---------------------------------------------------------------------------
+
+
+class DatasetUploadResponse(BaseModel):
+    """Response after successful dataset CSV upload."""
+
+    dataset_id: str = Field(..., description="Content-addressable dataset ID (SHA256)")
+    original_filename: str = Field(..., description="Original file name")
+    columns: list[str] = Field(..., description="All column names in the CSV")
+    n_rows: int = Field(..., description="Number of data rows")
+    detected_y_true_col: Optional[str] = Field(None, description="Auto-detected ground truth column")
+    detected_y_score_col: Optional[str] = Field(None, description="Auto-detected score/prediction column")
+    detected_feature_cols: list[str] = Field(default_factory=list, description="Auto-detected feature columns")
