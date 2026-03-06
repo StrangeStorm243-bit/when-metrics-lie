@@ -505,3 +505,92 @@ export async function getModelFormats(): Promise<SupportedFormat[]> {
   return apiFetch<SupportedFormat[]>("/models/formats");
 }
 
+// ---------------------------------------------------------------------------
+// Dataset upload
+// ---------------------------------------------------------------------------
+
+export interface DatasetUploadResponse {
+  dataset_id: string;
+  original_filename: string;
+  columns: string[];
+  n_rows: number;
+  detected_y_true_col: string | null;
+  detected_y_score_col: string | null;
+  detected_feature_cols: string[];
+}
+
+/**
+ * Upload a CSV dataset file.
+ */
+export async function uploadDataset(file: File): Promise<DatasetUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+
+  let authToken: string | null = null;
+  if (_tokenProvider) {
+    try {
+      authToken = await _tokenProvider();
+    } catch {
+      // ignore
+    }
+  }
+
+  const headers: Record<string, string> = {};
+  if (authToken) {
+    headers["Authorization"] = `Bearer ${authToken}`;
+  }
+
+  const url = `${API_BASE}/datasets`;
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  if (!response.ok) {
+    let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.detail) {
+        errorMessage = typeof errorData.detail === "string" ? errorData.detail : JSON.stringify(errorData.detail);
+      }
+    } catch {
+      // ignore
+    }
+    throw new ApiError(errorMessage, response.status);
+  }
+
+  return response.json();
+}
+
+// ---------------------------------------------------------------------------
+// Auto-detect
+// ---------------------------------------------------------------------------
+
+export interface AutoDetectRequest {
+  model_id?: string | null;
+  dataset_id: string;
+}
+
+export interface AutoDetectResponse {
+  task_type: string;
+  y_true_col: string | null;
+  y_score_col: string | null;
+  feature_cols: string[];
+  recommended_metric: string;
+  recommended_stress_suite: string;
+  n_rows: number;
+  model_class: string | null;
+  confidence: "high" | "medium" | "low";
+}
+
+/**
+ * Auto-detect experiment configuration from uploaded model + dataset.
+ */
+export async function autoDetect(req: AutoDetectRequest): Promise<AutoDetectResponse> {
+  return apiFetch<AutoDetectResponse>("/auto-detect", {
+    method: "POST",
+    body: JSON.stringify(req),
+  });
+}
+
