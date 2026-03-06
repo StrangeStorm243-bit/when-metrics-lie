@@ -35,18 +35,33 @@ export default async function HomePage() {
         }}
       >
         <h1>Experiments</h1>
-        <Link
-          href="/new"
-          style={{
-            padding: "0.5rem 1rem",
-            backgroundColor: "#0070f3",
-            color: "white",
-            borderRadius: "4px",
-            textDecoration: "none",
-          }}
-        >
-          New Experiment
-        </Link>
+        <div style={{ display: "flex", gap: "0.5rem" }}>
+          <Link
+            href="/quick"
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "#0070f3",
+              color: "white",
+              borderRadius: "4px",
+              textDecoration: "none",
+            }}
+          >
+            Quick Test
+          </Link>
+          <Link
+            href="/new"
+            style={{
+              padding: "0.5rem 1rem",
+              backgroundColor: "transparent",
+              color: "#0070f3",
+              borderRadius: "4px",
+              textDecoration: "none",
+              border: "1px solid #0070f3",
+            }}
+          >
+            Advanced
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -72,8 +87,8 @@ export default async function HomePage() {
           }}
         >
           No experiments yet.{" "}
-          <Link href="/new" style={{ color: "#0070f3" }}>
-            Create one
+          <Link href="/quick" style={{ color: "#0070f3" }}>
+            Run a Quick Test
           </Link>{" "}
           to get started.
         </div>
