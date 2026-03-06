@@ -286,3 +286,24 @@ class DatasetUploadResponse(BaseModel):
     detected_y_true_col: Optional[str] = Field(None, description="Auto-detected ground truth column")
     detected_y_score_col: Optional[str] = Field(None, description="Auto-detected score/prediction column")
     detected_feature_cols: list[str] = Field(default_factory=list, description="Auto-detected feature columns")
+
+
+class AutoDetectRequest(BaseModel):
+    """Request to auto-detect experiment configuration."""
+
+    model_id: Optional[str] = Field(None, description="Uploaded model ID (from /models)")
+    dataset_id: str = Field(..., description="Uploaded dataset ID (from /datasets)")
+
+
+class AutoDetectResponse(BaseModel):
+    """Auto-detected experiment configuration."""
+
+    task_type: str = Field(..., description="Detected task type")
+    y_true_col: Optional[str] = Field(None, description="Detected ground truth column")
+    y_score_col: Optional[str] = Field(None, description="Detected score/prediction column")
+    feature_cols: list[str] = Field(default_factory=list, description="Detected feature columns")
+    recommended_metric: str = Field(..., description="Recommended primary metric")
+    recommended_stress_suite: str = Field(..., description="Recommended stress suite")
+    n_rows: int = Field(0, description="Dataset row count")
+    model_class: Optional[str] = Field(None, description="Model class name if model provided")
+    confidence: str = Field("high", description="Detection confidence: high, medium, low")
