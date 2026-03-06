@@ -149,6 +149,48 @@ def rerun(run_id: str = typer.Argument(..., help="Run ID to rerun.")) -> None:
     typer.echo(f"Rerun complete. New run ID: {new_id}")
 
 
+@app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind host."),
+    port: int = typer.Option(8000, "--port", "-p", help="Bind port."),
+    reload: bool = typer.Option(False, "--reload", help="Auto-reload on code changes."),
+    open_browser: bool = typer.Option(
+        True, "--open/--no-open", help="Open browser on startup."
+    ),
+) -> None:
+    """Launch the Spectra web API server."""
+    try:
+        import uvicorn
+    except ImportError:
+        typer.echo("uvicorn not installed. Run: pip install spectra-ml[web]")
+        raise typer.Exit(code=1)
+
+    from metrics_lie import __version__
+
+    typer.echo(f"Spectra {__version__} — starting web API server")
+    typer.echo(f"API: http://{host}:{port}")
+    typer.echo(f"Health: http://{host}:{port}/health")
+    typer.echo("Press Ctrl+C to stop.\n")
+
+    if open_browser:
+        import threading
+        import webbrowser
+
+        def _open() -> None:
+            import time
+            time.sleep(1.5)
+            webbrowser.open(f"http://{host}:{port}/health")
+
+        threading.Thread(target=_open, daemon=True).start()
+
+    uvicorn.run(
+        "web.backend.app.main:app",
+        host=host,
+        port=port,
+        reload=reload,
+    )
+
+
 @app.command("enqueue-run")
 def enqueue_run(
     experiment_id: str = typer.Argument(..., help="Experiment ID."),
