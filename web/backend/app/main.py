@@ -9,7 +9,7 @@ from .routers import auto_detect, compare, datasets, experiments, llm, models, p
 app = FastAPI(
     title="Spectra API",
     description="Web API for Spectra evaluation engine",
-    version="0.3.0",
+    version="1.0.0",
 )
 
 # Dynamic CORS origins from config (includes localhost + any SPECTRA_CORS_ORIGINS)

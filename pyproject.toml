@@ -3,11 +3,35 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "metrics_lie"
-version = "0.4.0"
-description = "When Metrics Lie engine"
+name = "spectra-ml"
+version = "1.0.0"
+description = "Scenario-first ML evaluation engine — stress-test your models to find where metrics lie"
 readme = "README.md"
 requires-python = ">=3.11"
+license = {text = "Apache-2.0"}
+authors = [
+  {name = "Spectra Contributors"}
+]
+keywords = [
+  "machine-learning", "evaluation", "testing", "metrics",
+  "stress-testing", "model-validation", "ml-ops", "fairness",
+  "calibration", "scikit-learn"
+]
+classifiers = [
+  "Development Status :: 5 - Production/Stable",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development :: Testing",
+  "Typing :: Typed",
+]
+
 dependencies = [
   "pydantic>=2.0",
   "numpy>=1.26",
@@ -19,6 +43,13 @@ dependencies = [
   "typer>=0.9",
   "rich>=13.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/StrangeStorm243-bit/when-metrics-lie"
+Documentation = "https://strangestorm243-bit.github.io/when-metrics-lie/"
+Repository = "https://github.com/StrangeStorm243-bit/when-metrics-lie"
+Issues = "https://github.com/StrangeStorm243-bit/when-metrics-lie/issues"
+Changelog = "https://github.com/StrangeStorm243-bit/when-metrics-lie/releases"
 
 [project.optional-dependencies]
 dev = [
@@ -71,7 +102,7 @@ docs = [
   "mkdocstrings[python]>=0.24"
 ]
 all = [
-  "metrics_lie[dev,web,onnx,boosting,fairness,drift,security,mlflow,metrics,pytorch,tensorflow,huggingface,docs]"
+  "spectra-ml[dev,web,onnx,boosting,fairness,drift,security,mlflow,metrics,pytorch,tensorflow,huggingface,docs]"
 ]
 
 [project.scripts]
